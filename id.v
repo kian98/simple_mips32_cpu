@@ -29,14 +29,6 @@ module id(
     input wire[`RegBus] regData1,
     input wire[`RegBus] regData2,
 
-    //为解决数据相关问题，将MEM和EX的数据直接传入到ID段
-    input wire ex_wReg_i,
-    input wire[`RegAddrBus] ex_wAddr_i,
-    input wire[`RegBus] ex_wData_i,
-    input wire mem_wReg_i,
-    input wire[`RegAddrBus] mem_wAddr_i,
-    input wire[`RegBus] mem_wData_i,
-
     output reg re1,
     output reg[`RegAddrBus] readAddr1,
     output reg re2,
@@ -200,6 +192,66 @@ module id(
                                     writeReg <= `WriteEnable;
                                     instValid <= `InstValid;
                                 end
+                                `EXE_MOVN:
+                                begin
+                                    aluOp <= `EXE_MOVN_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    if(regData2 == `ZeroWord)
+                                    begin
+                                        writeReg <= `WriteDisable;
+                                    end
+                                    else begin
+                                        writeReg <= `WriteEnable;
+                                    end
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MOVZ:
+                                begin
+                                    aluOp <= `EXE_MOVZ_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    if(regData2 != `ZeroWord)
+                                    begin
+                                        writeReg <= `WriteDisable;
+                                    end
+                                    else begin
+                                        writeReg <= `WriteEnable;
+                                    end
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MFHI:
+                                begin
+                                    aluOp <= `EXE_MFHI_OP;
+                                    re1 <= `ReadDisable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MTHI:
+                                begin
+                                    aluOp <= `EXE_MTHI_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteDisable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MFLO:
+                                begin
+                                    aluOp <= `EXE_MFLO_OP;
+                                    re1 <= `ReadDisable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MTLO:
+                                begin
+                                    aluOp <= `EXE_MTLO_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteDisable;
+                                    instValid <= `InstValid;
+                                end
                                 default: begin
                                 end
                             endcase
@@ -251,14 +303,6 @@ module id(
         if (rst == `RstEnable) begin
             opNum1 <= `ZeroWord;
         end
-        else if (re1 == `ReadEnable && ex_wReg_i == `WriteEnable
-            && readAddr1 == ex_wAddr_i) begin
-            opNum1 <= ex_wData_i;
-        end
-        else if (re1 == `ReadEnable && mem_wReg_i == `WriteEnable
-            && readAddr1 == mem_wAddr_i) begin
-            opNum1 <= mem_wData_i;
-        end
         else if (re1 == `ReadDisable) begin
             opNum1 <= imm;
         end
@@ -275,14 +319,6 @@ module id(
     always @(*) begin
         if (rst == `RstEnable) begin
             opNum2 <= `ZeroWord;
-        end
-        else if (re2 == `ReadEnable && ex_wReg_i == `WriteEnable
-            && readAddr2 == ex_wAddr_i) begin
-            opNum2 <= ex_wData_i;
-        end
-        else if (re2 == `ReadEnable && mem_wReg_i == `WriteEnable
-            && readAddr2 == mem_wAddr_i) begin
-            opNum2 <= mem_wData_i;
         end
         else if (re2 == `ReadDisable) begin
             opNum2 <= imm;

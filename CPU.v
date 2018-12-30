@@ -58,7 +58,6 @@ module CPU(
 
     //id/ex传到ex
     wire[`AluOpLength] ex_aluOp;
-    //wire[`AluTypeLength] ex_aluType;
     wire[`RegBus] ex_opNum1;
     wire[`RegBus] ex_opNum2;
     wire[`RegAddrBus] ex_writeAddr;
@@ -68,21 +67,39 @@ module CPU(
     wire ex_wReg;
     wire[`RegAddrBus] ex_wAddr;
     wire[`RegBus] ex_wData;
+    wire ex_wHiLo;
+    wire[`RegBus] ex_hiData;
+    wire[`RegBus] ex_loData;
 
     //ex/mem传到mem
     wire mem_wReg_i;
     wire[`RegAddrBus] mem_wAddr_i;
     wire[`RegBus] mem_wData_i;
+    wire mem_wHiLo_i;
+    wire[`RegBus] mem_loData_i;
+    wire[`RegBus] mem_hiData_i;
 
-    //mem传到mem/wb
+    //mem传到mem/wb, ex
     wire mem_wReg_o;
     wire[`RegAddrBus] mem_wAddr_o;
     wire[`RegBus] mem_wData_o;
+    wire mem_wHiLo_o;
+    wire[`RegBus] mem_loData_o;
+    wire[`RegBus] mem_hiData_o;
 
     //mem/wb传到regfile
     wire we;
     wire[`RegAddrBus] writeAddr;
     wire[`RegBus] writeData;
+
+    //mem/wb传到ex, hilo_reg
+    wire wb_wHiLo;
+    wire[`RegBus] wb_loData;
+    wire[`RegBus] wb_hiData;
+
+    //hilo_reg传到id
+    wire[`RegBus] hiData;
+    wire[`RegBus] loData;
 
     pc_reg pc_reg0(
     	.clk(clk),
@@ -110,12 +127,6 @@ module CPU(
     	.id_inst(id_inst),
     	.regData1(id_regData1),
     	.regData2(id_regData2),
-        .ex_wReg_i(ex_wReg),
-        .ex_wAddr_i(ex_wAddr),
-        .ex_wData_i(ex_wData),
-        .mem_wReg_i(mem_wReg_o),
-        .mem_wAddr_i(mem_wAddr_o),
-        .mem_wData_i(mem_wData_o),
 
     	.re1(id_re1),
     	.re2(id_re2),
@@ -139,6 +150,13 @@ module CPU(
     	.we(we),
     	.writeAddr(writeAddr),
     	.writeData(writeData),
+        .ex_wReg_i(ex_wReg),
+        .ex_wAddr_i(ex_wAddr),
+        .ex_wData_i(ex_wData),
+        .mem_wReg_i(mem_wReg_o),
+        .mem_wAddr_i(mem_wAddr_o),
+        .mem_wData_i(mem_wData_o),
+
     	.readData1(id_regData1),
     	.readData2(id_regData2)
     );
@@ -162,15 +180,25 @@ module CPU(
 
     ex ex0(
     	.rst(rst),
-    	//.aluType(ex_aluType),
     	.aluOp(ex_aluOp),
     	.opNum1(ex_opNum1),
     	.opNum2(ex_opNum2),
     	.writeReg_i(ex_writeReg),
     	.writeAddr_i(ex_writeAddr),
+        .hiData_i(hiData),
+        .loData_i(loData),
+        .mem_wHiLo_i(mem_wHiLo_o),
+        .mem_hiData_i(mem_hiData_o),
+        .mem_loData_i(mem_loData_o),
+        .wb_wHiLo_i(wb_wHiLo),
+        .wb_hiData_i(wb_hiData),
+        .wb_loData_i(wb_loData),
     	.writeReg_o(ex_wReg),
     	.writeAddr_o(ex_wAddr),
-    	.writeData_o(ex_wData)
+    	.writeData_o(ex_wData),
+        .wHiLo(ex_wHiLo),
+        .hiData_o(ex_hiData),
+        .loData_o(ex_loData)
     );
 
     ex_mem ex_mem0(
@@ -179,9 +207,15 @@ module CPU(
     	.ex_wReg(ex_wReg),
     	.ex_wAddr(ex_wAddr),
     	.ex_wData(ex_wData),
+        .ex_wHiLo(ex_wHiLo),
+        .ex_hiData(ex_hiData),
+        .ex_loData(ex_loData),
     	.mem_wReg(mem_wReg_i),
     	.mem_wAddr(mem_wAddr_i),
-    	.mem_wData(mem_wData_i)
+    	.mem_wData(mem_wData_i),
+        .mem_wHiLo(mem_wHiLo_i),
+        .mem_hiData(mem_hiData_i),
+        .mem_loData(mem_loData_i)
     );
 
     mem mem0(
@@ -189,9 +223,15 @@ module CPU(
     	.wReg_i(mem_wReg_i),
     	.wAddr_i(mem_wAddr_i),
     	.wData_i(mem_wData_i),
+        .wHiLo_i(mem_wHiLo_i),
+        .hiData_i(mem_hiData_i),
+        .loData_i(mem_loData_i),
     	.wReg_o(mem_wReg_o),
     	.wAddr_o(mem_wAddr_o),
-    	.wData_o(mem_wData_o)
+    	.wData_o(mem_wData_o),
+        .wHiLo_o(mem_wHiLo_o),
+        .hiData_o(mem_hiData_o),
+        .loData_o(mem_loData_o)
     );
 
     mem_wb mem_wb0(
@@ -200,9 +240,25 @@ module CPU(
     	.mem_wReg(mem_wReg_o),
     	.mem_wAddr(mem_wAddr_o),
     	.mem_wData(mem_wData_o),
+        .mem_wHiLo(mem_wHiLo_o),
+        .mem_hiData(mem_hiData_o),
+        .mem_loData(mem_loData_o),
     	.wb_wReg(we),
     	.wb_wAddr(writeAddr),
-    	.wb_wData(writeData)
+    	.wb_wData(writeData),
+        .wb_wHiLo(wb_wHiLo),
+        .wb_hiData(wb_hiData),
+        .wb_loData(wb_loData)
+    );
+
+    hilo_reg hilo_reg0(
+        .rst(rst),
+        .clk(clk),
+        .we(wb_wHiLo),
+        .hiData_i(wb_hiData),
+        .loData_i(wb_loData),
+        .hiData_o(hiData),
+        .loData_o(loData)
     );
 
 endmodule

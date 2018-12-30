@@ -10,7 +10,8 @@
 // Target Devices: 
 // Tool versions: 
 // Description: 
-//     对寄存器堆（Register file）的读写操作，可能读取一个或两个寄存器，
+//     寄存器堆（Register file）
+//     可能读取一个或两个寄存器，
 //     或写入一个寄存器；可以返回读取的地址和读取的数据
 // Dependencies: 
 //
@@ -31,6 +32,15 @@ module regfile(
     input wire we,                       // Write enable
     input wire[`RegAddrBus] writeAddr,          // Write address for reg
     input wire[`RegBus] writeData,         // Data to write in
+
+    //为解决数据相关问题，将MEM和EX的数据直接传入到ID段
+    input wire ex_wReg_i,
+    input wire[`RegAddrBus] ex_wAddr_i,
+    input wire[`RegBus] ex_wData_i,
+    input wire mem_wReg_i,
+    input wire[`RegAddrBus] mem_wAddr_i,
+    input wire[`RegBus] mem_wData_i,
+
     output reg[`RegBus] readData1,        // Data read from the 1st reg
     output reg[`RegBus] readData2         // Data read from the 2nd reg
     );
@@ -55,7 +65,19 @@ module regfile(
         else if (readAddr1 == `RegNumLength'b0) begin
             readData1 <= `ZeroWord;
         end
-        else if (re1 == `ReadEnable && we == `WriteEnable && readAddr1 == writeAddr) begin
+        //直接读取ex阶段执行得到的值，解决相邻指令的数据相关
+        else if (re1 == `ReadEnable && ex_wReg_i == `WriteEnable
+            && readAddr1 == ex_wAddr_i) begin
+            readData1 <= ex_wData_i;
+        end
+        //直接读取mem阶段的值，解决相隔一条指令的数据相关
+        else if (re1 == `ReadEnable && mem_wReg_i == `WriteEnable
+            && readAddr1 == mem_wAddr_i) begin
+            readData1 <= mem_wData_i;
+        end
+        //读取wb阶段的值，解决了相隔两条指令存在的数据相关
+        else if (re1 == `ReadEnable && we == `WriteEnable 
+            && readAddr1 == writeAddr) begin
             readData1 <= writeData;
         end
         else if (re1 == `ReadEnable) begin
@@ -75,10 +97,16 @@ module regfile(
         else if (readAddr2 == `RegNumLength'b0) begin
             readData2 <= `ZeroWord;
         end
+        else if (re2 == `ReadEnable && ex_wReg_i == `WriteEnable
+            && readAddr2 == ex_wAddr_i) begin
+            readData2 <= ex_wData_i;
+        end
+        else if (re2 == `ReadEnable && mem_wReg_i == `WriteEnable
+            && readAddr2 == mem_wAddr_i) begin
+            readData2 <= mem_wData_i;
+        end
         else if (re2 == `ReadEnable && we == `WriteEnable
             && readAddr2 == writeAddr) begin
-        //当写回阶段的写地址与译码阶段的读操作数地址相同时，
-        //读操作中直接赋值，解决了相隔两条指令存在的数据相关
             readData2 <= writeData;
         end
         else if (re2 == `ReadEnable) begin

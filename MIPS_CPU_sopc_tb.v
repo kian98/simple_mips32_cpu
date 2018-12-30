@@ -38,8 +38,8 @@ module MIPS_CPU_sopc_tb;
 
 	initial begin
 		rst = `RstEnable;
-		#100 rst = `RstDisable;
-		#500 $stop;
+		#50 rst = `RstDisable;
+		#550 $stop;
 	end
 
 	// Instantiate the Unit Under Test (UUT)

@@ -8,8 +8,8 @@
 `define ReadDisable			1'b0 			//读使能信号无效，不可读
 `define AluOpLength			7:0 			//ALU操作数宽度
 `define AluTypeLength		2:0 			//ALU操作选择码宽度
-`define InstValid			1'b0 			//指令有效
-`define InstInvalid			1'b1 			//指令无效
+`define InstValid			1'b1 			//指令有效
+`define InstInvalid			1'b0 			//指令无效
 `define Stop				1'b1
 `define NoStop				1'b0
 `define InDelaySlot			1'b1
@@ -45,15 +45,19 @@
 
 //32位指令中的前六位操作码字段Operation code
 //必要时结合funct确定aluOp
+//逻辑运算
 `define EXE_AND 			6'b100100
 `define EXE_OR 				6'b100101
 `define EXE_XOR 			6'b100110
 `define EXE_NOR 			6'b100111
+
+//立即数运算
 `define EXE_ANDI 			6'b001100
 `define EXE_ORI 			6'b001101
 `define EXE_XORI 			6'b001110
 `define EXE_LUI 			6'b001111
 
+//移位
 `define EXE_SLL 			6'b000000
 `define EXE_SLLV 			6'b000100
 `define EXE_SRL 			6'b000010
@@ -61,12 +65,33 @@
 `define EXE_SRA 			6'b000011
 `define EXE_SRAV 			6'b000111
 
-`define EXE_NOP 			6'b000000
-`define SSNOP 				32'h00000040
+//移动传输
+`define EXE_MOVN 			6'b001011
+`define EXE_MOVZ 			6'b001010
+`define EXE_MFHI 			6'b010000
+`define EXE_MTHI 			6'b010001
+`define EXE_MFLO 			6'b010010
+`define EXE_MTLO 			6'b010011
 
-`define EXE_SPECIAL_INST 	6'b000000
-`define EXE_REGIMM_INST 	6'b000001
-`define EXE_SPECIAL2_INST 	6'b011100
+//算数运算
+`define EXE_SLT 			6'b101010
+`define EXE_SLTU 			6'b101011
+`define EXE_SLTI 			6'b001010
+`define EXE_SLTIU 			6'b001011
+`define EXE_ADD 			6'b100000
+`define EXE_ADDU 			6'b100001
+`define EXE_SUB 			6'b100010
+`define EXE_SUBU 			6'b100011
+`define EXE_ADDI 			6'b001000
+`define EXE_ADDIU 			6'b001001
+`define EXE_CLZ 			6'b100000
+`define EXE_CLO 			6'b100001
+`define EXE_MULT 			6'b011000
+`define EXE_MULTU 			6'b011001
+`define EXE_MUL 			6'b000010
+
+//空指令
+`define EXE_NOP 			6'b000000
 
 //aluOp，确定具体操作
 `define EXE_AND_OP			8'b00100100 	//与
@@ -83,5 +108,11 @@
 `define EXE_SRLV_OP			8'b00000110 	//逻辑可变右移
 `define EXE_SRA_OP			8'b00000011 	//算数右移
 `define EXE_SRAV_OP			8'b00000111 	//算数可变右移
+`define EXE_MOVZ_OP			8'b00001010 	//mov if zero
+`define EXE_MOVN_OP			8'b00001011 	//mov if not zero
+`define EXE_MFHI_OP			8'b00010000 	//mov from hi
+`define EXE_MTHI_OP			8'b00010001 	//mov to hi
+`define EXE_MFLO_OP			8'b00010010 	//mov from lo
+`define EXE_MTLO_OP			8'b00010011 	//mov to lo
 
 `define EXE_NOP_OP			8'b00000000 	//空操作
