@@ -22,7 +22,6 @@
 
 module ex(
     input wire rst,
-    //input wire[`AluTypeLength] aluType,
     input wire[`AluOpLength] aluOp,
     input wire[`RegBus] opNum1,
     input wire[`RegBus] opNum2,
@@ -33,8 +32,6 @@ module ex(
     output reg [`RegBus] writeData_o
     );
 
-    //reg[`RegBus] result;      //运算结果
-
     //根据操作码进行相应运算，并给出最终结果
     always @(*) begin
         if (rst == `RstEnable) begin
@@ -42,9 +39,40 @@ module ex(
         end
         else begin
             case (aluOp)
-                `EXE_ORI_OP:
+                `EXE_OR_OP:
                 begin
-                    writeData_o <= opNum1|opNum2;
+                    writeData_o <= opNum1 | opNum2;
+                end
+                `EXE_AND_OP:
+                begin
+                    writeData_o <= opNum1 & opNum2;
+                end
+                `EXE_XOR_OP:
+                begin
+                    writeData_o <= opNum1 ^ opNum2;
+                end
+                `EXE_NOR_OP:
+                begin
+                    writeData_o <= ~(opNum1 | opNum2);
+                end
+                `EXE_SLL_OP:
+                begin
+                    writeData_o <= opNum2 << opNum1[4:0];
+                end
+                `EXE_SRL_OP:
+                begin
+                    writeData_o <= opNum2 >> opNum1[4:0];
+                end
+                `EXE_SRA_OP:
+                begin
+                    //算数右移，需要考虑符号位，先将符号位扩充为32位左移运算
+                    //操作数逻辑右移后，进行或运算，将保留高位符号
+                    writeData_o <= ({32{opNum2[31]}} << (
+                        6'b100000 - opNum1[4:0]
+                        )) | (opNum2 >> opNum1[4:0]);
+                end
+                default: begin
+                    writeData_o <= `ZeroWord;
                 end
             endcase
             writeReg_o <= writeReg_i;
@@ -52,6 +80,4 @@ module ex(
         end
     end
 
-    //根据运算类型进行不同输出
-    //删去此部分，直接融进上一部分运算
 endmodule

@@ -42,7 +42,6 @@ module id(
     output reg re2,
     output reg[`RegAddrBus] readAddr2,
 
-    //output reg[`AluTypeLength] aluType,             //ALU操作数选择码
     output reg[`AluOpLength] aluOp,                 //ALU操作数
     output reg[`RegBus] opNum1,                     //操作数1
     output reg[`RegBus] opNum2,                     //操作数2
@@ -52,69 +51,202 @@ module id(
     );
 
     wire[5:0] op = id_inst[31:26];      //操作码
-    wire[4:0] op1 = id_inst[10:6];
-    wire[5:0] op2 = id_inst[5:0];       //功能码
-    wire[4:0] op4 = id_inst[20:16];
+    wire[4:0] rs = id_inst[25:21];      //操作数1寄存器
+    wire[4:0] rd = id_inst[15:11];      //目标寄存器
+    wire[4:0] shamt = id_inst[10:6];    //移位操作偏移量
+    wire[5:0] funct = id_inst[5:0];     //功能码
 
     reg[`RegBus] imm;                   //立即数
     reg instValid;                      //指令是否有效
 
-//**********指令译码***********
+//****************指令译码*****************
+//  对于逻辑运算、移位操作以及空指令：
+//      根据op，非零则可以得到的对应的逻辑操作，包括
+//          ori | andi  | xori  | lui
+//      若为零，进一步根据shamt判断，若为零，根据funct可以得到对应操作，包括：
+//          or  | and   | xor   | nor   | sllv  | srlv  | srav
+//      另有三个指令格式不同，判断op、rs为全零时，可以根据funct确定：
+//          sll | srl   | sra
+
     always @(*) begin
         if (rst == `RstEnable) begin
-            //aluType <= `EXE_NOP_T;         //复位，NOP
-            aluOp <= `EXE_NOP_OP;          //复位，NOP
+            aluOp <= `EXE_NOP_OP;           //复位，NOP
 
             instValid <= `InstInvalid;      //指令无效
-            writeReg <= `WriteDisable;       //禁用写
+            writeReg <= `WriteDisable;      //禁用写
             re1 <= `ReadDisable;            //禁用读
             re2 <= `ReadDisable;
 
             writeAddr <= `NOPRegAddr;       //写地址全零
-            readAddr1 <= `NOPRegAddr;            //读地址全零
+            readAddr1 <= `NOPRegAddr;       //读地址全零
             readAddr2 <= `NOPRegAddr;
 
             imm <= `ZeroWord;               //立即数全零
         end
         else begin
+            //当没有对应操作时，默认为NOP
+            //之前这部分代码放在default中，但随着指令数增加，每个default都会需要添加
+            //为了减少代码冗余，将这部分提前。若不是NOP则需要覆盖
+            aluOp <= `EXE_NOP_OP;               //默认NOP操作
+            re1 <= `ReadDisable;                //不可读
+            re2 <= `ReadDisable;
+            readAddr1 <= id_inst[25:21];        //读寄存器地址
+            readAddr2 <= id_inst[20:16];
+            writeReg <= `WriteDisable;          //不可写
+            writeAddr <= id_inst[15:11];        //写寄存器地址
+            imm <= `ZeroWord;                   //立即数全零
+            instValid <= `InstInvalid;          //指令无效
+
             case(op)
-                `EXE_ORI:       //ori
+                `EXE_ORI:
                 begin
-                    //aluType <= `EXE_LOGIC_T;
-                    aluOp <= `EXE_ORI_OP;
-
-                    re1 <= `ReadEnable;
-                    re2 <= `ReadDisable;
-                    readAddr1 <= id_inst[25:21];         //读地址
-
-                    writeReg <= `WriteEnable;       //ori将结果写入寄存器
-                    writeAddr <= id_inst[20:16];    //写地址
-
-                    imm <= {16'b0, id_inst[15:0]};  //立即数无符号扩展
+                    aluOp <= `EXE_OR_OP;
+                    re1 <= `ReadEnable;                 //读操作数1
+                    re2 <= `ReadDisable;                //不读操作数2
+                    writeReg <= `WriteEnable;           //运算结果需要写回
+                    writeAddr <= id_inst[20:16];        //目标寄存器地址
+                    imm <= {16'b0, id_inst[15:0]};      //立即数无符号扩展
                     instValid <= `InstValid;
                 end
-                default:        //nop
+                `EXE_ANDI:
                 begin
-                    //aluType <= `EXE_NOP_T;          //默认NOP操作
-                    aluOp <= `EXE_NOP_OP;           //默认NOP操作
-
-                    re1 <= `ReadEnable;             //可读
-                    re2 <= `ReadEnable;
-                    readAddr1 <= id_inst[25:21];         //读地址
-                    readAddr2 <= id_inst[20:16];
-
-                    writeReg <= `WriteDisable;       //不可写
-                    writeAddr <= id_inst[15:11];    //写地址
-
-                    imm <= `ZeroWord;               //立即数全零
-                    instValid <= `InstInvalid;      //指令无效
+                    aluOp <= `EXE_AND_OP;
+                    re1 <= `ReadEnable;                 //读操作数1
+                    re2 <= `ReadDisable;                //不读操作数2
+                    writeReg <= `WriteEnable;           //运算结果需要写回
+                    writeAddr <= id_inst[20:16];        //目标寄存器地址
+                    imm <= {16'b0, id_inst[15:0]};      //立即数无符号扩展
+                    instValid <= `InstValid;
+                end
+                `EXE_XORI:
+                begin
+                    aluOp <= `EXE_XOR_OP;
+                    re1 <= `ReadEnable;                 //读操作数1
+                    re2 <= `ReadDisable;                //不读操作数2
+                    writeReg <= `WriteEnable;           //运算结果需要写回
+                    writeAddr <= id_inst[20:16];        //目标寄存器地址
+                    imm <= {16'b0, id_inst[15:0]};      //立即数无符号扩展
+                    instValid <= `InstValid;
+                end
+                `EXE_LUI:
+                begin
+                    aluOp <= `EXE_OR_OP;
+                    re1 <= `ReadEnable;                 //读操作数1
+                    re2 <= `ReadDisable;                //不读操作数2
+                    writeReg <= `WriteEnable;           //运算结果需要写回
+                    writeAddr <= id_inst[20:16];        //目标寄存器地址
+                    imm <= {id_inst[15:0], 16'b0};     //立即数装到高位
+                    instValid <= `InstValid;
+                end
+                6'b000000:
+                begin
+                    case (shamt)
+                        5'b00000:
+                        begin
+                            case(funct)
+                                `EXE_OR:
+                                begin
+                                    aluOp <= `EXE_OR_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_AND:
+                                begin
+                                    aluOp <= `EXE_AND_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_XOR:
+                                begin
+                                    aluOp <= `EXE_XOR_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_NOR:
+                                begin
+                                    aluOp <= `EXE_NOR_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SLLV:
+                                begin
+                                    aluOp <= `EXE_SLL_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SRLV:
+                                begin
+                                    aluOp <= `EXE_SRL_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SRAV:
+                                begin
+                                    aluOp <= `EXE_SRA_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                default: begin
+                                end
+                            endcase
+                        end
+                        default:begin
+                        end
+                    endcase
+                end
+                default:begin
                 end
             endcase
-
+            if ({op, rs} == 11'b0) begin
+                case(funct)
+                    `EXE_SLL:
+                    begin
+                        aluOp <= `EXE_SLL_OP;
+                        re1 <= `ReadDisable;
+                        re2 <= `ReadEnable;
+                        writeReg <= `WriteEnable;
+                        imm[4:0] <= id_inst[10:6];
+                        instValid <= `InstValid;
+                    end
+                    `EXE_SRL:
+                    begin
+                        aluOp <= `EXE_SRL_OP;
+                        re1 <= `ReadDisable;
+                        re2 <= `ReadEnable;
+                        writeReg <= `WriteEnable;
+                        imm[4:0] <= id_inst[10:6];
+                        instValid <= `InstValid;
+                    end
+                    `EXE_SRA:
+                    begin
+                        aluOp <= `EXE_SRA_OP;
+                        re1 <= `ReadDisable;
+                        re2 <= `ReadEnable;
+                        writeReg <= `WriteEnable;
+                        imm[4:0] <= id_inst[10:6];
+                        instValid <= `InstValid;
+                    end
+                endcase
+            end
         end
     end
 
-//**********取操作数1***********
+
+//*****************取操作数1***************
     always @(*) begin
         if (rst == `RstEnable) begin
             opNum1 <= `ZeroWord;
@@ -138,7 +270,8 @@ module id(
         end
     end
 
-//**********取操作数2***********
+
+//******************取操作数2***************
     always @(*) begin
         if (rst == `RstEnable) begin
             opNum2 <= `ZeroWord;
