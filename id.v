@@ -59,6 +59,14 @@ module id(
 //          or  | and   | xor   | nor   | sllv  | srlv  | srav
 //      另有三个指令格式不同，判断op、rs为全零时，可以根据funct确定：
 //          sll | srl   | sra
+//  对于移动指令：
+//  对于算数运算指令：
+//      根据op，非零且但为011100，可根据funct对应以下：
+//          clz | clo   | mul
+//      若op非零，且不为011100，可对应以下：
+//          slti| sltiu | addi  | addiu
+//      若op为零，shamt为零，根据funct对应以下：
+//          slt | sltu  | add   | addu  | sub   | subu  | mult  | multu
 
     always @(*) begin
         if (rst == `RstEnable) begin
@@ -107,7 +115,7 @@ module id(
                     re2 <= `ReadDisable;                //不读操作数2
                     writeReg <= `WriteEnable;           //运算结果需要写回
                     writeAddr <= id_inst[20:16];        //目标寄存器地址
-                    imm <= {16'b0, id_inst[15:0]};      //立即数无符号扩展
+                    imm <= {16'h0, id_inst[15:0]};      //立即数无符号扩展
                     instValid <= `InstValid;
                 end
                 `EXE_XORI:
@@ -129,6 +137,77 @@ module id(
                     writeAddr <= id_inst[20:16];        //目标寄存器地址
                     imm <= {id_inst[15:0], 16'b0};     //立即数装到高位
                     instValid <= `InstValid;
+                end
+                `EXE_ADDI:
+                begin
+                    aluOp <= `EXE_ADD_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    imm <= {{16{id_inst[15]}}, id_inst[15:0]};
+                    instValid <= `InstValid;
+                end
+                `EXE_ADDIU:
+                begin
+                    aluOp <= `EXE_ADD_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    imm <= {{16{id_inst[15]}}, id_inst[15:0]};
+                    instValid <= `InstValid;
+                end
+                `EXE_SLTI:
+                begin
+                    aluOp <= `EXE_SLT_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    imm <= {{16{id_inst[15]}}, id_inst[15:0]};
+                    instValid <= `InstValid;
+                end
+                `EXE_SLTIU:
+                begin
+                    aluOp <= `EXE_SLTU_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    imm <= {{16{id_inst[15]}}, id_inst[15:0]};
+                    instValid <= `InstValid;
+                end
+                6'b011100:
+                begin
+                    case (funct)
+                        `EXE_CLZ:
+                        begin
+                            aluOp <= `EXE_CLZ_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <= `WriteEnable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_CLO:
+                        begin
+                            aluOp <= `EXE_CLO_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <= `WriteEnable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_MUL:
+                        begin
+                            aluOp <= `EXE_MUL_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadEnable;
+                            writeReg <= `WriteEnable;
+                            instValid <= `InstValid;
+                        end
+                        default: begin
+                        end
+                    endcase
                 end
                 6'b000000:
                 begin
@@ -249,6 +328,70 @@ module id(
                                     aluOp <= `EXE_MTLO_OP;
                                     re1 <= `ReadEnable;
                                     re2 <= `ReadDisable;
+                                    writeReg <= `WriteDisable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SLT:
+                                begin
+                                    aluOp <= `EXE_SLT_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SLTU:
+                                begin
+                                    aluOp <= `EXE_SLTU_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_ADD:
+                                begin
+                                    aluOp <= `EXE_ADD_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_ADDU:
+                                begin
+                                    aluOp <= `EXE_ADDU_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SUB:
+                                begin
+                                    aluOp <= `EXE_SUB_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_SUBU:
+                                begin
+                                    aluOp <= `EXE_SUBU_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MULT:
+                                begin
+                                    aluOp <= `EXE_MULT_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteDisable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_MULTU:
+                                begin
+                                    aluOp <= `EXE_MULTU_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
                                     writeReg <= `WriteDisable;
                                     instValid <= `InstValid;
                                 end

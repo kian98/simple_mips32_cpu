@@ -114,5 +114,20 @@
 `define EXE_MTHI_OP			8'b00010001 	//mov to hi
 `define EXE_MFLO_OP			8'b00010010 	//mov from lo
 `define EXE_MTLO_OP			8'b00010011 	//mov to lo
+`define EXE_SLT_OP 			8'b00101010 	//set if less than
+`define EXE_SLTU_OP 		8'b00101011 	//set if less than unsign
+`define EXE_SLTI_OP 		8'b01010111 	//slt imm
+`define EXE_SLTIU_OP 		8'b01011000 	//slt imm unsign
+`define EXE_ADD_OP 			8'b00100000 	//add
+`define EXE_ADDU_OP 		8'b00100001 	//add unsign
+`define EXE_SUB_OP 			8'b00100010 	//sub
+`define EXE_SUBU_OP 		8'b00100011 	//sub unsign
+`define EXE_ADDI_OP 		8'b01010101 	//add imm
+`define EXE_ADDIU_OP 		8'b01010110 	//add imm unsign
+`define EXE_CLZ_OP 			8'b10110000 	//count leading zeros
+`define EXE_CLO_OP 			8'b10110001 	//count leading ones
+`define EXE_MULT_OP 		8'b00011000 	//mult save to hi&lo
+`define EXE_MULTU_OP 		8'b00011001 	//mult unsign 
+`define EXE_MUL_OP 			8'b10101001 	//mul save to reg 
 
 `define EXE_NOP_OP			8'b00000000 	//¿Õ²Ù×÷

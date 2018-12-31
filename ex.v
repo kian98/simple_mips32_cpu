@@ -50,6 +50,45 @@ module ex(
 
     reg[`RegBus] hiData;
     reg[`RegBus] loData;
+    wire[`RegBus] opNum2_comp;      //opNum2补码
+    wire[`RegBus] opNum1_not;       //opNum1反码
+    wire overflow;                  //溢出标志
+    wire[`RegBus] sum;              //相加结果
+    wire opNum1_lt_opNum2;          //opNum1 less than opNum2
+
+    //若为减法或者有符号的比较指令，需要求出补码，转化为加法运算
+    assign opNum2_comp =
+        ((aluOp == `EXE_SUB_OP) ||
+            (aluOp == `EXE_SUBU_OP) ||
+                (aluOp == `EXE_SLT_OP))
+        ? (~opNum2)+1 : opNum2;
+
+    //加法运算
+    //减法，或有符号比较（相当于减法），转换得到补码后加法
+    assign sum = opNum1 + opNum2_comp;
+
+    //溢出标志，溢出会引发异常（与进位不同）
+    //情况1：正数+正数 = 负数
+    //情况2：负数+负数 = 正数
+    //根据标志位即可判断
+    assign overflow =
+        ((!opNum1[31] && !opNum2_comp[31]) && sum[31]) ||
+            ((opNum1[31] && opNum2_comp[31]) && (!sum[31]));
+    
+    //若为slt指令有符号比较，小于等于情况如下：
+    //  1：负数 < 正数
+    //  2：正数1-正数2 < 0
+    //  3：负数1-负数2 < 0
+    //否则可以直接判断
+    assign opNum1_lt_opNum2 =
+        (aluOp == `EXE_SLT_OP) ?
+            ((opNum1[31] && !opNum2[31]) ||
+                (!opNum1[31] && !opNum2[31] && sum[31]) ||
+                    (opNum1[31] && opNum2[31] && sum[31]))
+            : (opNum1 < opNum2);
+
+    //opNum1反码
+    assign opNum1_not = ~opNum1;
 
     //根据操作码进行相应运算，并给出最终结果writeData_o，最终写回寄存器堆
     always @(*) begin
@@ -57,6 +96,21 @@ module ex(
             writeReg_o <= `WriteDisable;
         end
         else begin
+            //若为有符号数的运算，需要根据是否溢出来判断写回
+            if((aluOp == `EXE_ADD_OP ||
+                aluOp == `EXE_ADDI_OP ||
+                aluOp == `EXE_SUB_OP)
+                && (overflow == 1'b1))
+            begin
+                writeReg_o <= `WriteDisable;
+            end
+            else begin
+                writeReg_o <= writeReg_i;
+            end
+
+            writeAddr_o <= writeAddr_i;
+
+            //判断指令
             case (aluOp)
                 `EXE_OR_OP:
                 begin
@@ -106,12 +160,49 @@ module ex(
                 begin
                     writeData_o <= loData;
                 end
+                `EXE_SLT_OP, `EXE_SLTU_OP:
+                begin
+                    writeData_o <= opNum1_lt_opNum2;
+                end
+                `EXE_ADD_OP, `EXE_ADDU_OP, `EXE_ADDI_OP,
+                    `EXE_ADDIU_OP,`EXE_SUB_OP, `EXE_SUBU_OP:
+                begin
+                    writeData_o <= sum;
+                end
+                `EXE_CLZ_OP:
+                begin
+                    writeData_o <=
+                    opNum1[31] ? 0  : opNum1[30] ? 1  : opNum1[29] ? 2  :
+                    opNum1[28] ? 3  : opNum1[27] ? 4  : opNum1[26] ? 5  :
+                    opNum1[25] ? 6  : opNum1[24] ? 7  : opNum1[23] ? 8  :
+                    opNum1[22] ? 9  : opNum1[21] ? 10 : opNum1[20] ? 11 :
+                    opNum1[19] ? 12 : opNum1[18] ? 13 : opNum1[17] ? 14 :
+                    opNum1[16] ? 15 : opNum1[15] ? 16 : opNum1[14] ? 17 :
+                    opNum1[13] ? 18 : opNum1[12] ? 19 : opNum1[11] ? 20 :
+                    opNum1[10] ? 21 : opNum1[9]  ? 22 : opNum1[8]  ? 23 :
+                    opNum1[7]  ? 24 : opNum1[6]  ? 25 : opNum1[5]  ? 26 :
+                    opNum1[4]  ? 27 : opNum1[3]  ? 28 : opNum1[2]  ? 29 :
+                    opNum1[1]  ? 30 : opNum1[0]  ? 31 : 32 ;
+                end
+                `EXE_CLO_OP:
+                begin
+                    writeData_o <=
+                    opNum1_not[31] ? 0  : opNum1_not[30] ? 1  : opNum1_not[29] ? 2  :
+                    opNum1_not[28] ? 3  : opNum1_not[27] ? 4  : opNum1_not[26] ? 5  :
+                    opNum1_not[25] ? 6  : opNum1_not[24] ? 7  : opNum1_not[23] ? 8  : 
+                    opNum1_not[22] ? 9  : opNum1_not[21] ? 10 : opNum1_not[20] ? 11 :
+                    opNum1_not[19] ? 12 : opNum1_not[18] ? 13 : opNum1_not[17] ? 14 : 
+                    opNum1_not[16] ? 15 : opNum1_not[15] ? 16 : opNum1_not[14] ? 17 : 
+                    opNum1_not[13] ? 18 : opNum1_not[12] ? 19 : opNum1_not[11] ? 20 :
+                    opNum1_not[10] ? 21 : opNum1_not[9]  ? 22 : opNum1_not[8]  ? 23 : 
+                    opNum1_not[7]  ? 24 : opNum1_not[6]  ? 25 : opNum1_not[5]  ? 26 : 
+                    opNum1_not[4]  ? 27 : opNum1_not[3]  ? 28 : opNum1_not[2]  ? 29 : 
+                    opNum1_not[1]  ? 30 : opNum1_not[0]  ? 31 : 32;
+                end
                 default: begin
                     writeData_o <= `ZeroWord;
                 end
             endcase
-            writeReg_o <= writeReg_i;
-            writeAddr_o <= writeAddr_i;
         end
     end
 
