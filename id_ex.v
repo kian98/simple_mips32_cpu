@@ -28,6 +28,13 @@ module id_ex(
     input wire[`RegBus] id_opNum2,
     input wire[`RegAddrBus] id_writeAddr,
     input wire id_writeReg,
+    input wire[`StallSignal] stall,
+    input wire id_inDelaySlot,
+    input wire[`RegBus] id_linkAddr,
+    input wire nextInstInDelaySlot,
+    output reg ex_inDelaySlot,
+    output reg[`RegBus] ex_linkAddr,
+    output reg inDelaySlot,
     output reg[`AluOpLength] ex_aluOp,
     output reg[`RegBus] ex_opNum1,
     output reg[`RegBus] ex_opNum2,
@@ -44,8 +51,12 @@ module id_ex(
 
             ex_opNum1 <= `ZeroWord;
             ex_opNum2 <= `ZeroWord;
+
+            ex_linkAddr <= `ZeroWord;
+            ex_inDelaySlot <= `NotInDelaySlot;
+            inDelaySlot <= `NotInDelaySlot;
         end
-        else begin
+        else if(stall[2] != `Stop) begin
             ex_aluOp <= id_aluOp;
 
             ex_writeReg <= id_writeReg;
@@ -53,6 +64,23 @@ module id_ex(
 
             ex_opNum1 <= id_opNum1;
             ex_opNum2 <= id_opNum2;
+
+            ex_linkAddr <= id_linkAddr;
+            ex_inDelaySlot <= id_inDelaySlot;
+            //传回id段，指示id段此时读入指令是否为延迟槽指令
+            inDelaySlot <= nextInstInDelaySlot;
+        end
+        else if(stall[3] != `Stop) begin
+            ex_aluOp <= `EXE_NOP_OP;          //复位，NOP
+
+            ex_writeReg <= `WriteDisable;       //禁用写
+            ex_writeAddr <= `NOPRegAddr;       //写地址全零
+
+            ex_opNum1 <= `ZeroWord;
+            ex_opNum2 <= `ZeroWord;
+
+            ex_linkAddr <= `ZeroWord;
+            ex_inDelaySlot <= `NotInDelaySlot;
         end
     end
 

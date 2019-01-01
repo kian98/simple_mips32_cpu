@@ -26,6 +26,7 @@ module if_id(
     input wire clk,
     input wire[`InstAddrBus] if_pc,
     input wire[`InstBus] if_inst,
+    input wire[`StallSignal] stall,
     output reg[`InstAddrBus] id_pc,
     output reg[`InstBus] id_inst
     );
@@ -35,9 +36,15 @@ module if_id(
 			id_pc <= `ZeroWord;
 			id_inst <= `ZeroWord;
 		end
-		else begin
+		else if(stall[1] != `Stop) begin
+			//当前阶段不用暂停，则正常
 			id_pc <= if_pc;
 			id_inst <= if_inst;
+		end
+		else if(stall[2] != `Stop) begin
+			//当前段需要暂停且下一段继续运行，插入nop
+			id_pc <= `ZeroWord;
+			id_inst <= `ZeroWord;
 		end
 	end
 

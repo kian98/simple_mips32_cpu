@@ -23,10 +23,13 @@
 module pc_reg(
     input wire rst,				//reset,复位信号
     input wire clk,				//clock,时钟信号
+    input wire[`StallSignal] stall,
+    input wire branch_flag,     //是否在转移
+    input wire[`RegBus] branchTargetAddr,     //转移地址
     output reg[`InstAddrBus] pc,//program counter,指令寄存器,要读取的指令的地址
     output reg ce				//指令存储器使能信号
     );
-
+//按字节变址，一个操作8位
     always @(posedge clk) begin
         if (rst == `RstEnable) begin
             ce <= `ChipDisable; //复位，指令存储器不可用
@@ -40,7 +43,10 @@ module pc_reg(
         if (ce == `ChipDisable) begin
             pc <= `InstAddrLength'b0;        //32'b0;指令存储器不可用，PC为0
         end
-        else begin
+        else if(branch_flag == `Branch) begin
+            pc <= branchTargetAddr;
+        end
+        else if(stall[0] != `Stop) begin
             pc <= pc + `InstAddrLength'h4;
         end
     end

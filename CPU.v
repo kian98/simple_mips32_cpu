@@ -29,81 +29,110 @@ module CPU(
     );
 
 	//pc传到if/id
-	wire[`InstAddrBus] pc;
+	(* KEEP="TRUE" *)wire[`InstAddrBus] pc;
 
 	//inst_rom传到if/id
-	wire[`InstBus] if_inst;
+	(* KEEP="TRUE" *)wire[`InstBus] if_inst;
 
 	//if/id传到id
-	wire[`InstAddrBus] id_pc;
-	wire[`InstBus] id_inst;
+	(* KEEP="TRUE" *)wire[`InstAddrBus] id_pc;
+	(* KEEP="TRUE" *)wire[`InstBus] id_inst;
 
     //id传到regfile
-    wire id_re1;
-    wire[`RegAddrBus] id_readAddr1;
-    wire id_re2;
-    wire[`RegAddrBus] id_readAddr2;
+    (* KEEP="TRUE" *)wire id_re1;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] id_readAddr1;
+    (* KEEP="TRUE" *)wire id_re2;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] id_readAddr2;
 
     //regfile传到id
-    wire[`RegBus] id_regData1;
-    wire[`RegBus] id_regData2;
+    (* KEEP="TRUE" *)wire[`RegBus] id_regData1;
+    (* KEEP="TRUE" *)wire[`RegBus] id_regData2;
 
     //id传到id/ex
-    //wire[`AluTypeLength] id_aluType;
-    wire[`AluOpLength] id_aluOp;
-    wire[`RegBus] id_opNum1;
-    wire[`RegBus] id_opNum2;
-    wire id_writeReg;
-    wire[`RegAddrBus] id_writeAddr;
+    (* KEEP="TRUE" *)wire[`AluOpLength] id_aluOp;
+    (* KEEP="TRUE" *)wire[`RegBus] id_opNum1;
+    (* KEEP="TRUE" *)wire[`RegBus] id_opNum2;
+    (* KEEP="TRUE" *)wire id_writeReg;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] id_writeAddr;
+    (* KEEP="TRUE" *)wire id_inDelaySlot;
+    (* KEEP="TRUE" *)wire[`RegBus] id_linkAddr;
+    (* KEEP="TRUE" *)wire nextInstInDelaySlot;
+
+    //id传到control
+    (* KEEP="TRUE" *)wire id_stall;
+
+    //id传到pc
+    (* KEEP="TRUE" *)wire branch_flag;
+    (* KEEP="TRUE" *)wire[`RegBus] branchTargetAddr;
 
     //id/ex传到ex
-    wire[`AluOpLength] ex_aluOp;
-    wire[`RegBus] ex_opNum1;
-    wire[`RegBus] ex_opNum2;
-    wire[`RegAddrBus] ex_writeAddr;
-    wire ex_writeReg;
+    (* KEEP="TRUE" *)wire[`AluOpLength] ex_aluOp;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_opNum1;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_opNum2;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] ex_writeAddr;
+    (* KEEP="TRUE" *)wire ex_writeReg;
+    (* KEEP="TRUE" *)wire ex_inDelaySlot;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_linkAddr;
+
+    //id/ex传到id
+    (* KEEP="TRUE" *)wire inDelaySlot;
 
     //ex传到ex/mem
-    wire ex_wReg;
-    wire[`RegAddrBus] ex_wAddr;
-    wire[`RegBus] ex_wData;
-    wire ex_wHiLo;
-    wire[`RegBus] ex_hiData;
-    wire[`RegBus] ex_loData;
+    (* KEEP="TRUE" *)wire ex_wReg;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] ex_wAddr;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_wData;
+    (* KEEP="TRUE" *)wire ex_wHiLo;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_hiData;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_loData;
+    (* KEEP="TRUE" *)wire[`DoubleRegBus] ex_hilo_o;
+    (* KEEP="TRUE" *)wire[1:0] ex_count_o;
+
+    //ex传到control
+    (* KEEP="TRUE" *)wire ex_stall;
 
     //ex/mem传到mem
-    wire mem_wReg_i;
-    wire[`RegAddrBus] mem_wAddr_i;
-    wire[`RegBus] mem_wData_i;
-    wire mem_wHiLo_i;
-    wire[`RegBus] mem_loData_i;
-    wire[`RegBus] mem_hiData_i;
+    (* KEEP="TRUE" *)wire mem_wReg_i;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] mem_wAddr_i;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_wData_i;
+    (* KEEP="TRUE" *)wire mem_wHiLo_i;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_loData_i;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_hiData_i;
+
+    //ex/mem传给ex
+    (* KEEP="TRUE" *)wire[`DoubleRegBus] ex_hilo_i;
+    (* KEEP="TRUE" *)wire[1:0] ex_count_i;
 
     //mem传到mem/wb, ex
-    wire mem_wReg_o;
-    wire[`RegAddrBus] mem_wAddr_o;
-    wire[`RegBus] mem_wData_o;
-    wire mem_wHiLo_o;
-    wire[`RegBus] mem_loData_o;
-    wire[`RegBus] mem_hiData_o;
+    (* KEEP="TRUE" *)wire mem_wReg_o;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] mem_wAddr_o;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_wData_o;
+    (* KEEP="TRUE" *)wire mem_wHiLo_o;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_loData_o;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_hiData_o;
 
     //mem/wb传到regfile
-    wire we;
-    wire[`RegAddrBus] writeAddr;
-    wire[`RegBus] writeData;
+    (* KEEP="TRUE" *)wire we;
+    (* KEEP="TRUE" *)wire[`RegAddrBus] writeAddr;
+    (* KEEP="TRUE" *)wire[`RegBus] writeData;
 
     //mem/wb传到ex, hilo_reg
-    wire wb_wHiLo;
-    wire[`RegBus] wb_loData;
-    wire[`RegBus] wb_hiData;
+    (* KEEP="TRUE" *)wire wb_wHiLo;
+    (* KEEP="TRUE" *)wire[`RegBus] wb_loData;
+    (* KEEP="TRUE" *)wire[`RegBus] wb_hiData;
 
     //hilo_reg传到id
-    wire[`RegBus] hiData;
-    wire[`RegBus] loData;
+    (* KEEP="TRUE" *)wire[`RegBus] hiData;
+    (* KEEP="TRUE" *)wire[`RegBus] loData;
+
+    //control传到pc_reg,if_id,id_ex,ex_mem,mem_wb
+    (* KEEP="TRUE" *)wire[`StallSignal] stallSig;
 
     pc_reg pc_reg0(
     	.clk(clk),
     	.rst(rst),
+        .stall(stallSig),
+        .branch_flag(branch_flag),
+        .branchTargetAddr(branchTargetAddr),
     	.pc(pc),
     	.ce(rom_ce)
     );
@@ -117,6 +146,7 @@ module CPU(
     	.clk(clk),
     	.if_pc(pc),
     	.if_inst(rom_inst),
+        .stall(stallSig),
     	.id_pc(id_pc),
     	.id_inst(id_inst)
     );
@@ -127,17 +157,23 @@ module CPU(
     	.id_inst(id_inst),
     	.regData1(id_regData1),
     	.regData2(id_regData2),
+        .inDelaySlot_i(inDelaySlot),
 
-    	.re1(id_re1),
-    	.re2(id_re2),
-    	.readAddr1(id_readAddr1),
-    	.readAddr2(id_readAddr2),
-    	//.aluType(id_aluType),
-    	.aluOp(id_aluOp),
-    	.opNum1(id_opNum1),
-    	.opNum2(id_opNum2),
-    	.writeReg(id_writeReg),
-    	.writeAddr(id_writeAddr)
+        .re1(id_re1),
+        .re2(id_re2),
+        .readAddr1(id_readAddr1),
+        .readAddr2(id_readAddr2),
+        .aluOp(id_aluOp),
+        .opNum1(id_opNum1),
+        .opNum2(id_opNum2),
+        .writeReg(id_writeReg),
+        .writeAddr(id_writeAddr),
+        .id_stall(id_stall),
+        .inDelaySlot_o(id_inDelaySlot),
+        .linkAddr(id_linkAddr),
+        .nextInstInDelaySlot(nextInstInDelaySlot),
+        .branchTargetAddr(branchTargetAddr),
+        .branch_flag(branch_flag)
     );
 
     regfile regfile0(
@@ -165,17 +201,22 @@ module CPU(
     	.rst(rst),
     	.clk(clk),
     	.id_aluOp(id_aluOp),
-    	//.id_aluType(id_aluType),
+        .stall(stallSig),
     	.id_opNum1(id_opNum1),
     	.id_opNum2(id_opNum2),
     	.id_writeAddr(id_writeAddr),
     	.id_writeReg(id_writeReg),
     	.ex_aluOp(ex_aluOp),
-    	//.ex_aluType(ex_aluType),
     	.ex_opNum1(ex_opNum1),
     	.ex_opNum2(ex_opNum2),
     	.ex_writeAddr(ex_writeAddr),
-    	.ex_writeReg(ex_writeReg)
+    	.ex_writeReg(ex_writeReg),
+        .id_inDelaySlot(id_inDelaySlot),
+        .id_linkAddr(id_linkAddr),
+        .nextInstInDelaySlot(nextInstInDelaySlot),
+        .ex_inDelaySlot(ex_inDelaySlot),
+        .ex_linkAddr(ex_linkAddr),
+        .inDelaySlot(inDelaySlot)
     );
 
     ex ex0(
@@ -193,17 +234,25 @@ module CPU(
         .wb_wHiLo_i(wb_wHiLo),
         .wb_hiData_i(wb_hiData),
         .wb_loData_i(wb_loData),
+        .inDelaySlot(ex_inDelaySlot),
+        .linkAddr(ex_linkAddr),
     	.writeReg_o(ex_wReg),
     	.writeAddr_o(ex_wAddr),
     	.writeData_o(ex_wData),
         .wHiLo(ex_wHiLo),
         .hiData_o(ex_hiData),
-        .loData_o(ex_loData)
+        .loData_o(ex_loData),
+        .ex_stall(ex_stall),
+        .hilo_i(ex_hilo_i),
+        .count_i(ex_count_i),
+        .hilo_o(ex_hilo_o),
+        .count_o(ex_count_o)
     );
 
     ex_mem ex_mem0(
     	.rst(rst),
     	.clk(clk),
+        .stall(stallSig),
     	.ex_wReg(ex_wReg),
     	.ex_wAddr(ex_wAddr),
     	.ex_wData(ex_wData),
@@ -215,7 +264,11 @@ module CPU(
     	.mem_wData(mem_wData_i),
         .mem_wHiLo(mem_wHiLo_i),
         .mem_hiData(mem_hiData_i),
-        .mem_loData(mem_loData_i)
+        .mem_loData(mem_loData_i),
+        .hilo_i(ex_hilo_o),
+        .count_i(ex_count_o),
+        .hilo_o(ex_hilo_i),
+        .count_o(ex_count_i)
     );
 
     mem mem0(
@@ -237,6 +290,7 @@ module CPU(
     mem_wb mem_wb0(
     	.rst(rst),
     	.clk(clk),
+        .stall(stallSig),
     	.mem_wReg(mem_wReg_o),
     	.mem_wAddr(mem_wAddr_o),
     	.mem_wData(mem_wData_o),
@@ -259,6 +313,13 @@ module CPU(
         .loData_i(wb_loData),
         .hiData_o(hiData),
         .loData_o(loData)
+    );
+
+    control control0(
+        .rst(rst),
+        .id_stall(id_stall),
+        .ex_stall(ex_stall),
+        .stall(stallSig)
     );
 
 endmodule

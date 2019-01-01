@@ -10,10 +10,8 @@
 `define AluTypeLength		2:0 			//ALU操作选择码宽度
 `define InstValid			1'b1 			//指令有效
 `define InstInvalid			1'b0 			//指令无效
-`define Stop				1'b1
-`define NoStop				1'b0
-`define InDelaySlot			1'b1
-`define NotInDelaySlot		1'b0
+`define InDelaySlot 		1'b1 			//不在延迟槽中
+`define NotInDelaySlot 		1'b0 			//指令在延迟槽中
 `define Branch				1'b1
 `define NotBranch			1'b0
 `define InterruptAssert		1'b1
@@ -24,6 +22,10 @@
 `define False_v				1'b0 			//真
 `define ChipEnable			1'b1 			//芯片使能信号有效
 `define ChipDisable			1'b0 			//芯片使能信号无效
+
+`define StallSignal			5:0 			//stall信号宽度
+`define Stop 				1'b1 			//stall stop
+`define NotStop 			1'b0 			//stall not stop
 
 //指令存储器inst_rom
 `define InstAddrBus			31:0 			//指令寄存器地址总线宽度
@@ -44,7 +46,8 @@
 
 
 //32位指令中的前六位操作码字段Operation code
-//必要时结合funct确定aluOp
+//或者最后六位funct
+//存在重复，因为还需要进一步根据shamt等判断
 //逻辑运算
 `define EXE_AND 			6'b100100
 `define EXE_OR 				6'b100101
@@ -89,11 +92,32 @@
 `define EXE_MULT 			6'b011000
 `define EXE_MULTU 			6'b011001
 `define EXE_MUL 			6'b000010
+`define EXE_MADD 			6'b000000
+`define EXE_MADDU 			6'b000001
+`define EXE_MSUB 			6'b000100
+`define EXE_MSUBU 			6'b000101
+
+//跳转指令
+`define EXE_J 				6'b000010
+`define EXE_JAL 			6'b000011
+`define EXE_JALR 			6'b001001
+`define EXE_JR 				6'b001000
+
+//分支指令
+`define EXE_BEQ 			6'b000100
+`define EXE_BGEZ 			5'b00001
+`define EXE_BGEZAL 			5'b10001
+`define EXE_BGTZ 			6'b000111
+`define EXE_BLEZ 			6'b000110
+`define EXE_BLTZ 			5'b00000
+`define EXE_BLTZAL 			5'b10000
+`define EXE_BNE 			6'b000101
 
 //空指令
 `define EXE_NOP 			6'b000000
 
 //aluOp，确定具体操作
+//按字节编指，一个操作8位
 `define EXE_AND_OP			8'b00100100 	//与
 `define EXE_ANDI_OP			8'b01011001 	//与立即数
 `define EXE_OR_OP			8'b00100101 	//或
@@ -114,6 +138,7 @@
 `define EXE_MTHI_OP			8'b00010001 	//mov to hi
 `define EXE_MFLO_OP			8'b00010010 	//mov from lo
 `define EXE_MTLO_OP			8'b00010011 	//mov to lo
+//因为有符号和无符号需要考虑是否溢出，因此不可以合用
 `define EXE_SLT_OP 			8'b00101010 	//set if less than
 `define EXE_SLTU_OP 		8'b00101011 	//set if less than unsign
 `define EXE_SLTI_OP 		8'b01010111 	//slt imm
@@ -129,5 +154,21 @@
 `define EXE_MULT_OP 		8'b00011000 	//mult save to hi&lo
 `define EXE_MULTU_OP 		8'b00011001 	//mult unsign 
 `define EXE_MUL_OP 			8'b10101001 	//mul save to reg 
+`define EXE_MADD_OP 		8'b10100110 	//add hilo after mult
+`define EXE_MADDU_OP 		8'b10101000 	//add hilo after mult unsign
+`define EXE_MSUB_OP 		8'b10101010 	//sub hilo after mult
+`define EXE_MSUBU_OP 		8'b10101011 	//sub hilo after mult unsign
+`define EXE_J_OP 			8'b01001111
+`define EXE_JAL_OP 			8'b01010000
+`define EXE_JALR_OP 		8'b00001001
+`define EXE_JR_OP 			8'b00001000
+`define EXE_BEQ_OP 			8'b01010001
+`define EXE_BGEZ_OP 		8'b01000001
+`define EXE_BGEZAL_OP 		8'b01001011
+`define EXE_BGTZ_OP 		8'b01010100
+`define EXE_BLEZ_OP 		8'b01010011
+`define EXE_BLTZ_OP 		8'b01000000
+`define EXE_BLTZAL_OP 		8'b01001010
+`define EXE_BNE_OP 			8'b01010010
 
 `define EXE_NOP_OP			8'b00000000 	//空操作

@@ -29,6 +29,8 @@ module id(
     input wire[`RegBus] regData1,
     input wire[`RegBus] regData2,
 
+    input wire inDelaySlot_i,         //是否为延迟槽指令
+
     output reg re1,
     output reg[`RegAddrBus] readAddr1,
     output reg re2,
@@ -39,8 +41,17 @@ module id(
     output reg[`RegBus] opNum2,                     //操作数2
 
     output reg writeReg,                    //是否写入寄存器
-    output reg[`RegAddrBus] writeAddr       //要写入的寄存器地址，会一直传递下去
+    output reg[`RegAddrBus] writeAddr,      //要写入的寄存器地址，会一直传递下去
+    output wire id_stall,
+
+    output reg branch_flag,
+    output reg[`RegBus] branchTargetAddr,
+    output reg inDelaySlot_o,
+    output reg[`RegBus] linkAddr,
+    output reg nextInstInDelaySlot
     );
+
+    assign id_stall = 1'b0;
 
     wire[5:0] op = id_inst[31:26];      //操作码
     wire[4:0] rs = id_inst[25:21];      //操作数1寄存器
@@ -50,6 +61,15 @@ module id(
 
     reg[`RegBus] imm;                   //立即数
     reg instValid;                      //指令是否有效
+
+    wire[`RegBus] imm_sll2_signedext;
+    wire[`RegBus] pc_4;
+    wire[`RegBus] pc_8;
+
+    assign pc_4 = id_pc + 4;            //delay slot
+    assign pc_8 = id_pc + 8;            //return
+    //imm左移两位并符号扩展
+    assign imm_sll2_signedext = {{14{id_inst[15]}},id_inst[15:0],2'b0};
 
 //****************指令译码*****************
 //  对于逻辑运算、移位操作以及空指令：
@@ -67,6 +87,7 @@ module id(
 //          slti| sltiu | addi  | addiu
 //      若op为零，shamt为零，根据funct对应以下：
 //          slt | sltu  | add   | addu  | sub   | subu  | mult  | multu
+//  对于转移指令：
 
     always @(*) begin
         if (rst == `RstEnable) begin
@@ -82,6 +103,11 @@ module id(
             readAddr2 <= `NOPRegAddr;
 
             imm <= `ZeroWord;               //立即数全零
+
+            branch_flag <= `NotBranch;
+            nextInstInDelaySlot <= `NotInDelaySlot;
+            branchTargetAddr <= `ZeroWord;
+            linkAddr <= `ZeroWord;
         end
         else begin
             //当没有对应操作时，默认为NOP
@@ -95,6 +121,10 @@ module id(
             writeReg <= `WriteDisable;          //不可写
             writeAddr <= id_inst[15:11];        //写寄存器地址
             imm <= `ZeroWord;                   //立即数全零
+            linkAddr <= `ZeroWord;
+            branch_flag <= `NotBranch;
+            branchTargetAddr <= `ZeroWord;
+            nextInstInDelaySlot <= `NotInDelaySlot;
             instValid <= `InstInvalid;          //指令无效
 
             case(op)
@@ -178,6 +208,146 @@ module id(
                     imm <= {{16{id_inst[15]}}, id_inst[15:0]};
                     instValid <= `InstValid;
                 end
+                `EXE_J:
+                begin
+                    aluOp <= `EXE_J_OP;
+                    re1 <= `ReadDisable;
+                    re2 <= `ReadDisable;
+                    writeReg <=`WriteDisable;
+                    branch_flag <= `Branch;
+                    nextInstInDelaySlot <= `InDelaySlot;
+                    //32位地址，可以表示4096MB区域，划分为16个256MB区域
+                    //j指令在当前PC所在的256MB中跳转。
+                    //因为按字节变址，所以左移2位
+                    branchTargetAddr <= {pc_4[31:28], id_inst[25:0], 2'b00};
+                    instValid <= `InstValid;
+                end
+                `EXE_JAL:
+                begin
+                    aluOp <= `EXE_JAL_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <=`WriteEnable;
+                    writeAddr <= 5'b11111;
+                    branch_flag <= `Branch;
+                    nextInstInDelaySlot <= `InDelaySlot;
+                    branchTargetAddr <= {pc_4[31:28], id_inst[25:0], 2'b00};
+                    linkAddr <= pc_8;
+                    instValid <= `InstValid;
+                end
+                `EXE_BEQ:
+                begin
+                    aluOp <= `EXE_BEQ_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadEnable;
+                    writeReg <=`WriteDisable;
+                    if (regData1 == regData2) begin
+                        branch_flag <= `Branch;
+                        nextInstInDelaySlot <= `InDelaySlot;
+                        branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                    end
+                    instValid <= `InstValid;
+                end
+                `EXE_BNE:
+                begin
+                    aluOp <= `EXE_BNE_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadEnable;
+                    writeReg <=`WriteDisable;
+                    if (regData1 != regData2) begin
+                        branch_flag <= `Branch;
+                        nextInstInDelaySlot <= `InDelaySlot;
+                        branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                    end
+                    instValid <= `InstValid;
+                end
+                `EXE_BGTZ:
+                begin
+                    aluOp <= `EXE_BGTZ_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <=`WriteDisable;
+                    if (regData1[31] == 1'b0 && regData1 != `ZeroWord) begin
+                        branch_flag <= `Branch;
+                        nextInstInDelaySlot <= `InDelaySlot;
+                        branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                    end
+                    instValid <= `InstValid;
+                end
+                `EXE_BLEZ:
+                begin
+                    aluOp <= `EXE_BLEZ_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <=`WriteDisable;
+                    if (regData1[31] == 1'b1 || regData1 == `ZeroWord) begin
+                        branch_flag <= `Branch;
+                        nextInstInDelaySlot <= `InDelaySlot;
+                        branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                    end
+                    instValid <= `InstValid;
+                end
+                6'b000001:
+                begin
+                    case(id_inst[20:16])
+                        `EXE_BGEZ:
+                        begin
+                            aluOp <= `EXE_BGEZ_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <=`WriteDisable;
+                            if (regData1[31] == 1'b0) begin
+                                branch_flag <= `Branch;
+                                nextInstInDelaySlot <= `InDelaySlot;
+                                branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                            end
+                            instValid <= `InstValid;
+                        end
+                        `EXE_BGEZAL:
+                        begin
+                            aluOp <= `EXE_BGEZAL_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <=`WriteEnable;
+                            writeAddr <= 5'b11111;
+                            linkAddr <= pc_8;
+                            if (regData1[31] == 1'b0) begin
+                                branch_flag <= `Branch;
+                                nextInstInDelaySlot <= `InDelaySlot;
+                                branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                            end
+                            instValid <= `InstValid;
+                        end
+                        `EXE_BLTZ:
+                        begin
+                            aluOp <= `EXE_BLTZ_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <=`WriteDisable;
+                            if (regData1[31] == 1'b1) begin
+                                branch_flag <= `Branch;
+                                nextInstInDelaySlot <= `InDelaySlot;
+                                branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                            end
+                            instValid <= `InstValid;
+                        end
+                        `EXE_BLTZAL:
+                        begin
+                            aluOp <= `EXE_BLTZAL_OP;
+                            re1 <= `ReadEnable;
+                            re2 <= `ReadDisable;
+                            writeReg <=`WriteEnable;
+                            writeAddr <= 5'b11111;
+                            linkAddr <= pc_8;
+                            if (regData1[31] == 1'b1) begin
+                                branch_flag <= `Branch;
+                                nextInstInDelaySlot <= `InDelaySlot;
+                                branchTargetAddr <= pc_4 + imm_sll2_signedext;
+                            end
+                            instValid <= `InstValid;
+                        end
+                    endcase
+                end
                 6'b011100:
                 begin
                     case (funct)
@@ -203,6 +373,38 @@ module id(
                             re1 <= `ReadEnable;
                             re2 <= `ReadEnable;
                             writeReg <= `WriteEnable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_MADD:
+                        begin
+                            aluOp <= `EXE_MADD_OP;
+                            re1 <= `ReadEnable;
+                            re2 <=  `ReadEnable;
+                            writeReg <= `WriteDisable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_MADDU:
+                        begin
+                            aluOp <= `EXE_MADDU_OP;
+                            re1 <= `ReadEnable;
+                            re2 <=  `ReadEnable;
+                            writeReg <= `WriteDisable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_MSUB:
+                        begin
+                            aluOp <= `EXE_MSUB_OP;
+                            re1 <= `ReadEnable;
+                            re2 <=  `ReadEnable;
+                            writeReg <= `WriteDisable;
+                            instValid <= `InstValid;
+                        end
+                        `EXE_MSUBU:
+                        begin
+                            aluOp <= `EXE_MSUBU_OP;
+                            re1 <= `ReadEnable;
+                            re2 <=  `ReadEnable;
+                            writeReg <= `WriteDisable;
                             instValid <= `InstValid;
                         end
                         default: begin
@@ -395,6 +597,29 @@ module id(
                                     writeReg <= `WriteDisable;
                                     instValid <= `InstValid;
                                 end
+                                `EXE_JR:
+                                begin
+                                    aluOp <= `EXE_JR_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteDisable;
+                                    branch_flag <= `Branch;
+                                    branchTargetAddr <= regData1;
+                                    nextInstInDelaySlot <= `InDelaySlot;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_JALR:
+                                begin
+                                    aluOp <= `EXE_JR_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadDisable;
+                                    writeReg <= `WriteEnable;
+                                    linkAddr <= pc_8;
+                                    branch_flag <= `Branch;
+                                    branchTargetAddr <= regData1;
+                                    nextInstInDelaySlot <= `InDelaySlot;
+                                    instValid <= `InstValid;
+                                end
                                 default: begin
                                 end
                             endcase
@@ -440,6 +665,15 @@ module id(
         end
     end
 
+//根据上一时钟周期的结果判断当前指令是否在延迟槽中
+    always @(*) begin
+        if (rst == `RstEnable) begin
+            inDelaySlot_o <= `NotInDelaySlot;
+        end
+        else begin
+            inDelaySlot_o <= inDelaySlot_i;
+        end
+    end
 
 //*****************取操作数1***************
     always @(*) begin

@@ -29,6 +29,7 @@ module mem_wb(
     input wire mem_wHiLo,
     input wire[`RegBus] mem_hiData,
     input wire[`RegBus] mem_loData,
+    input wire[`StallSignal] stall,
     output reg wb_wReg,
     output reg[`RegAddrBus] wb_wAddr,
     output reg[`RegBus] wb_wData,
@@ -46,13 +47,21 @@ module mem_wb(
 			wb_hiData <= `ZeroWord;
 			wb_loData <= `ZeroWord;
 		end
-		else begin
+		else if(stall[4] != `Stop) begin
 			wb_wReg <= mem_wReg;
 			wb_wAddr <= mem_wAddr;
 			wb_wData <= mem_wData;
 			wb_wHiLo <= mem_wHiLo;
 			wb_hiData <= mem_hiData;
 			wb_loData <= mem_loData;
+		end
+		else if(stall[5] != `Stop) begin
+			wb_wReg <= `WriteDisable;
+			wb_wAddr <= `NOPRegAddr;
+			wb_wData <= `ZeroWord;
+			wb_wHiLo <= `WriteDisable;
+			wb_hiData <= `ZeroWord;
+			wb_loData <= `ZeroWord;
 		end
 	end
 

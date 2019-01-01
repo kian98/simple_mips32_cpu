@@ -28,8 +28,8 @@ module ex(
     input wire writeReg_i,
     input wire[`RegAddrBus] writeAddr_i,
     
-    input wire[`RegBus] hiData_i,
-    input wire[`RegBus] loData_i,
+    input wire[`RegBus] hiData_i,   //从hilo_reg传入
+    input wire[`RegBus] loData_i,   //从hilo_reg传入
 
     input wire mem_wHiLo_i,
     input wire[`RegBus] mem_hiData_i,
@@ -39,22 +39,34 @@ module ex(
     input wire[`RegBus] wb_hiData_i,
     input wire[`RegBus] wb_loData_i,
 
+    input wire[1:0] count_i,
+    input wire[`DoubleRegBus] hilo_i,
+
+    input wire inDelaySlot,
+    input wire[`RegBus] linkAddr,
+
     output reg writeReg_o,
     output reg[`RegAddrBus] writeAddr_o,
     output reg[`RegBus] writeData_o,
 
     output reg wHiLo,
-    output reg[`RegBus] hiData_o,
-    output reg[`RegBus] loData_o
+    output reg[`RegBus] hiData_o,   //写到hilo_reg
+    output reg[`RegBus] loData_o,   //写到hilo_reg
+    output reg ex_stall,
+    output reg[1:0] count_o,
+    output reg[`DoubleRegBus] hilo_o
     );
 
-    reg[`RegBus] hiData;
-    reg[`RegBus] loData;
+    reg[`RegBus] hiData;            //从hilo_reg读出
+    reg[`RegBus] loData;            //从hilo_reg读出
     wire[`RegBus] opNum2_comp;      //opNum2补码
     wire[`RegBus] opNum1_not;       //opNum1反码
     wire overflow;                  //溢出标志
     wire[`RegBus] sum;              //相加结果
     wire opNum1_lt_opNum2;          //opNum1 less than opNum2
+
+    wire[`DoubleRegBus] mul_ans_temp;
+    reg[`DoubleRegBus] mul_ans;
 
     //若为减法或者有符号的比较指令，需要求出补码，转化为加法运算
     assign opNum2_comp =
@@ -94,6 +106,9 @@ module ex(
     always @(*) begin
         if (rst == `RstEnable) begin
             writeReg_o <= `WriteDisable;
+            hilo_o <= {`ZeroWord, `ZeroWord};
+            count_o <= 2'b00;
+            ex_stall <= `NotStop;
         end
         else begin
             //若为有符号数的运算，需要根据是否溢出来判断写回
@@ -199,10 +214,86 @@ module ex(
                     opNum1_not[4]  ? 27 : opNum1_not[3]  ? 28 : opNum1_not[2]  ? 29 : 
                     opNum1_not[1]  ? 30 : opNum1_not[0]  ? 31 : 32;
                 end
+                `EXE_MADD_OP, `EXE_MADDU_OP:
+                begin
+                    if(count_i == 2'b00)
+                    begin
+                        hilo_o <= mul_ans;
+                        count_o <= 2'b01;
+                        ex_stall <= `Stop;
+                    end
+                    else if(count_i == 2'b01) begin
+                        hilo_o <= {`ZeroWord, `ZeroWord};
+                        count_o <= 2'b10;
+                        mul_ans <= hilo_i + {hiData, loData};
+                        ex_stall <= `NotStop;
+                    end
+                end
+                `EXE_MSUB_OP, `EXE_MSUBU_OP:
+                begin
+                    if(count_i == 2'b00)
+                    begin
+                        hilo_o <= ~mul_ans + 1;
+                        count_o <= 2'b01;
+                        ex_stall <= `Stop;
+                    end
+                    else if(count_i == 2'b01) begin
+                        hilo_o <= {`ZeroWord, `ZeroWord};
+                        count_o <= 2'b10;
+                        mul_ans <= hilo_i + {hiData, loData};
+                        ex_stall <= `NotStop;
+                    end
+                end
+                `EXE_J_OP, `EXE_JAL_OP, `EXE_JALR_OP,
+                `EXE_JR_OP, `EXE_BEQ_OP, `EXE_BGEZ_OP,
+                `EXE_BGEZAL_OP, `EXE_BGTZ_OP, `EXE_BLEZ_OP,
+                `EXE_BLTZ_OP, `EXE_BLTZAL_OP, `EXE_BNE_OP:
+                begin
+                    writeData_o <= linkAddr;
+                end
                 default: begin
                     writeData_o <= `ZeroWord;
+                    hilo_o <= {`ZeroWord, `ZeroWord};
+                    count_o <= 2'b00;
+                    ex_stall <= `NotStop;
                 end
             endcase
+        end
+    end
+
+    wire[`RegBus] opNum1_mul;
+    wire[`RegBus] opNum2_mul;
+
+    //若为有符号乘，需要对负数取补码
+    assign opNum1_mul = ((aluOp == `EXE_MUL_OP || aluOp == `EXE_MULT_OP
+        || aluOp == `EXE_MADD_OP || aluOp == `EXE_MSUB_OP)
+        && opNum1[31] == 1'b1) ? (~opNum1 + 1) : opNum1;
+    assign opNum2_mul = ((aluOp == `EXE_MUL_OP || aluOp == `EXE_MULT_OP
+        || aluOp == `EXE_MADD_OP || aluOp == `EXE_MSUB_OP)
+        && opNum2[31] == 1'b1) ? (~opNum2 + 1) : opNum2;
+
+    //未修正的乘法结果
+    assign mul_ans_temp = opNum1_mul * opNum2_mul;
+
+    //无符号乘法，直接赋值
+    //有符号乘法，若两个数同号，直接赋值；
+    //若不同号，需要将已经求得的结果取补码
+    always @(*) begin
+        if (rst == `RstEnable) begin
+            mul_ans <= {`ZeroWord,`ZeroWord};
+        end
+        else if (aluOp == `EXE_MUL_OP || aluOp == `EXE_MULT_OP
+            || aluOp == `EXE_MADD_OP || aluOp == `EXE_MSUB_OP) 
+        begin
+            if (opNum1[31] ^ opNum2 == 1'b1) begin
+                mul_ans <= ~mul_ans_temp + 1;
+            end
+            else begin
+                mul_ans <= mul_ans_temp;
+            end
+        end
+        else begin
+            mul_ans <= mul_ans_temp;
         end
     end
 
@@ -246,6 +337,18 @@ module ex(
                     wHiLo <= `WriteEnable;
                     hiData_o <= hiData;
                     loData_o <= opNum1;
+                end
+                `EXE_MULT_OP, `EXE_MULTU_OP:
+                begin
+                    wHiLo <= `WriteEnable;
+                    hiData_o <= mul_ans[63:32];
+                    loData_o <= mul_ans[31:0];
+                end
+                `EXE_MADD_OP, `EXE_MSUB_OP, `EXE_MADDU_OP,`EXE_MSUBU_OP:
+                begin
+                    wHiLo <= `WriteEnable;
+                    hiData_o <= mul_ans[63:32];
+                    loData_o <= mul_ans[31:0];
                 end
                 default:begin
                     wHiLo <= `WriteDisable;
