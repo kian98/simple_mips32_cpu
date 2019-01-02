@@ -47,6 +47,9 @@ module ex(
 
     input wire[`RegBus] inst_i,
 
+    input wire[63:0] div_res,
+    input wire div_finish,
+
     output reg writeReg_o,
     output reg[`RegAddrBus] writeAddr_o,
     output reg[`RegBus] writeData_o,
@@ -59,7 +62,12 @@ module ex(
     output reg[`DoubleRegBus] hilo_o,
     output wire[`AluOpLength] aluOp_o,
     output wire[`DataAddrBus] mem_addr,
-    output wire[`RegBus] opNum2_o
+    output wire[`RegBus] opNum2_o,
+
+    output reg[`RegBus] opNum1_div,
+    output reg[`RegBus] opNum2_div,
+    output reg div_start,
+    output reg div_sign
     );
 
     reg[`RegBus] hiData;            //从hilo_reg读出
@@ -69,6 +77,9 @@ module ex(
     wire overflow;                  //溢出标志
     wire[`RegBus] sum;              //相加结果
     wire opNum1_lt_opNum2;          //opNum1 less than opNum2
+
+    reg div_stall;
+    reg madd_msub_stall;
 
     wire[`DoubleRegBus] mul_ans_temp;
     reg[`DoubleRegBus] mul_ans;
@@ -118,7 +129,7 @@ module ex(
             writeReg_o <= `WriteDisable;
             hilo_o <= {`ZeroWord, `ZeroWord};
             count_o <= 2'b00;
-            ex_stall <= `NotStop;
+            madd_msub_stall <= `NotStop;
         end
         else begin
             //若为有符号数的运算，需要根据是否溢出来判断写回
@@ -230,13 +241,13 @@ module ex(
                     begin
                         hilo_o <= mul_ans;
                         count_o <= 2'b01;
-                        ex_stall <= `Stop;
+                        madd_msub_stall <= `Stop;
                     end
                     else if(count_i == 2'b01) begin
                         hilo_o <= {`ZeroWord, `ZeroWord};
                         count_o <= 2'b10;
                         mul_add_sub_ans <= hilo_i + {hiData, loData};
-                        ex_stall <= `NotStop;
+                        madd_msub_stall <= `NotStop;
                     end
                 end
                 `EXE_MSUB_OP, `EXE_MSUBU_OP:
@@ -245,13 +256,13 @@ module ex(
                     begin
                         hilo_o <= ~mul_ans + 1;
                         count_o <= 2'b01;
-                        ex_stall <= `Stop;
+                        madd_msub_stall <= `Stop;
                     end
                     else if(count_i == 2'b01) begin
                         hilo_o <= {`ZeroWord, `ZeroWord};
                         count_o <= 2'b10;
                         mul_add_sub_ans <= hilo_i + {hiData, loData};
-                        ex_stall <= `NotStop;
+                        madd_msub_stall <= `NotStop;
                     end
                 end
                 `EXE_J_OP, `EXE_JAL_OP, `EXE_JALR_OP,
@@ -265,7 +276,7 @@ module ex(
                     writeData_o <= `ZeroWord;
                     hilo_o <= {`ZeroWord, `ZeroWord};
                     count_o <= 2'b00;
-                    ex_stall <= `NotStop;
+                    madd_msub_stall <= `NotStop;
                 end
             endcase
         end
@@ -305,6 +316,63 @@ module ex(
         else begin
             mul_ans <= mul_ans_temp;
         end
+    end
+
+    always @(*) begin
+        if (rst == `RstEnable) begin
+            div_stall <= 1'b0;
+            opNum1_div <= `ZeroWord;
+            opNum2_div <= `ZeroWord;
+            div_start <= 1'b0;
+            div_sign <= 1'b0;
+        end
+        else begin
+            div_stall <= 1'b0;
+            opNum1_div <= `ZeroWord;
+            opNum2_div <= `ZeroWord;
+            div_start <= 1'b0;
+            div_sign <= 1'b0;
+            case(aluOp)
+                `EXE_DIV_OP:
+                begin
+                    opNum1_div <= opNum1;
+                    opNum2_div <= opNum2;
+                    div_sign <= 1'b1;
+                    if(div_finish == 1'b0)      //未完成，则保持开始状态，流水线暂停
+                    begin
+                        div_start <= 1'b1;
+                        div_stall <= `Stop;
+                    end
+                    else if(div_finish == 1'b1)
+                    begin
+                        div_start <= 1'b0;
+                        div_stall <= `NotStop;
+                    end
+                end
+                `EXE_DIVU_OP:
+                begin
+                    opNum1_div <= opNum1;
+                    opNum2_div <= opNum2;
+                    div_sign <= 1'b0;
+                    if(div_finish == 1'b0)      //未完成，则保持开始状态，流水线暂停
+                    begin
+                        div_start <= 1'b1;
+                        div_stall <= `Stop;
+                    end
+                    else if(div_finish == 1'b1)
+                    begin
+                        div_start <= 1'b0;
+                        div_stall <= `NotStop;
+                    end
+                end
+                default: begin
+                end
+            endcase
+        end
+    end
+
+    always @(*) begin
+        ex_stall = madd_msub_stall || div_stall;
     end
 
     //读取hilo_reg
@@ -359,6 +427,12 @@ module ex(
                     wHiLo <= `WriteEnable;
                     hiData_o <= mul_add_sub_ans[63:32];
                     loData_o <= mul_add_sub_ans[31:0];
+                end
+                `EXE_DIV_OP, `EXE_DIVU_OP:
+                begin
+                    wHiLo <= `WriteEnable;
+                    hiData_o <= div_res[63:32];
+                    loData_o <= div_res[31:0];
                 end
                 default:begin
                     wHiLo <= `WriteDisable;

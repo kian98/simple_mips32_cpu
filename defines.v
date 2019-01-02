@@ -51,6 +51,14 @@
 `define DataMemSizeLength 	10
 `define ByteWidth 			7:0
 
+//除法
+`define DivFree 			2'b00
+`define DivByZero 			2'b01
+`define DivOn 				2'b10
+`define DivEnd 				2'b11
+`define Finish 				1'b1
+`define NotFinish 			1'b0
+
 //32位指令中的前六位操作码字段Operation code
 //或者最后六位funct
 //存在重复，因为还需要进一步根据shamt等判断
@@ -133,6 +141,10 @@
 `define EXE_SWL 			6'b101010
 `define EXE_SWR 			6'b101110
 
+//除法指令
+`define EXE_DIV 			6'b011010
+`define EXE_DIVU 			6'b011011
+
 //空指令
 `define EXE_NOP 			6'b000000
 
@@ -198,5 +210,7 @@
 `define EXE_SB_OP 			8'b11101000
 `define EXE_SH_OP 			8'b11101001
 `define EXE_SW_OP 			8'b11101011
+`define EXE_DIV_OP 			8'b00011010
+`define EXE_DIVU_OP 		8'b00011011
 
 `define EXE_NOP_OP			8'b00000000 	//空操作

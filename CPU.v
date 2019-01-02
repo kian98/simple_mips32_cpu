@@ -101,6 +101,16 @@ module CPU(
     //ex传到control
     (* KEEP="TRUE" *)wire ex_stall;
 
+    //ex传到div
+    (* KEEP="TRUE" *)wire div_start;
+    (* KEEP="TRUE" *)wire[`RegBus] div_opNum1;
+    (* KEEP="TRUE" *)wire[`RegBus] div_opNum2;
+    (* KEEP="TRUE" *)wire div_sign;
+
+    //div传到ex
+    (* KEEP="TRUE" *)wire div_finish;
+    (* KEEP="TRUE" *)wire[`DoubleRegBus] result;
+
     //ex/mem传到mem
     (* KEEP="TRUE" *)wire mem_wReg_i;
     (* KEEP="TRUE" *)wire[`RegAddrBus] mem_wAddr_i;
@@ -268,7 +278,24 @@ module CPU(
         .inst_i(ex_inst),
         .aluOp_o(ex_aluOp_o),
         .mem_addr(ex_mem_addr),
-        .opNum2_o(ex_opNum2_o)
+        .opNum2_o(ex_opNum2_o),
+        .div_res(result),
+        .div_finish(div_finish),
+        .opNum1_div(div_opNum1),
+        .opNum2_div(div_opNum2),
+        .div_start(div_start),
+        .div_sign(div_sign)
+    );
+
+    div div0(
+        .rst(rst),
+        .clk(clk),
+        .start(div_start),
+        .sign(div_sign),
+        .dividend_i(div_opNum1),
+        .divisor_i(div_opNum2),
+        .finish(div_finish),
+        .result(result)
     );
 
     ex_mem ex_mem0(
@@ -323,8 +350,6 @@ module CPU(
         .mem_sel(ram_sel),
         .mem_data_i(ram_data_i)
     );
-
-
 
     mem_wb mem_wb0(
     	.rst(rst),

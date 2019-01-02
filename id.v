@@ -93,6 +93,7 @@ module id(
 //          slt | sltu  | add   | addu  | sub   | subu  | mult  | multu
 //  对于转移指令：
 //  对于加载存储指令：
+//  对于除法指令：
 
     always @(*) begin
         if (rst == `RstEnable) begin
@@ -692,6 +693,22 @@ module id(
                                     branch_flag <= `Branch;
                                     branchTargetAddr <= regData1;
                                     nextInstInDelaySlot <= `InDelaySlot;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_DIV:
+                                begin
+                                    aluOp <= `EXE_DIV_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
+                                    instValid <= `InstValid;
+                                end
+                                `EXE_DIVU:
+                                begin
+                                    aluOp <= `EXE_DIVU_OP;
+                                    re1 <= `ReadEnable;
+                                    re2 <= `ReadEnable;
+                                    writeReg <= `WriteEnable;
                                     instValid <= `InstValid;
                                 end
                                 default: begin
