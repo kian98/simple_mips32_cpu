@@ -24,8 +24,14 @@ module CPU(
     input wire clk,
     input wire rst,
     input wire[`InstBus] rom_inst,
+    input wire[`DataBus] ram_data_i,
     output wire[`InstAddrBus] rom_addr,
-    output wire rom_ce			//pc传到inst_rom，可直接在pc输出值处赋值
+    output wire rom_ce,			//pc传到inst_rom，可直接在pc输出值处赋值
+    output wire[`RegBus] ram_addr,
+    output wire[`RegBus] ram_data_o,
+    output wire ram_we,
+    output wire[3:0] ram_sel,
+    output wire ram_ce
     );
 
 	//pc传到if/id
@@ -57,6 +63,7 @@ module CPU(
     (* KEEP="TRUE" *)wire id_inDelaySlot;
     (* KEEP="TRUE" *)wire[`RegBus] id_linkAddr;
     (* KEEP="TRUE" *)wire nextInstInDelaySlot;
+    (* KEEP="TRUE" *)wire[`InstBus] inst_o;
 
     //id传到control
     (* KEEP="TRUE" *)wire id_stall;
@@ -73,6 +80,7 @@ module CPU(
     (* KEEP="TRUE" *)wire ex_writeReg;
     (* KEEP="TRUE" *)wire ex_inDelaySlot;
     (* KEEP="TRUE" *)wire[`RegBus] ex_linkAddr;
+    (* KEEP="TRUE" *)wire[`InstBus] ex_inst;
 
     //id/ex传到id
     (* KEEP="TRUE" *)wire inDelaySlot;
@@ -86,6 +94,9 @@ module CPU(
     (* KEEP="TRUE" *)wire[`RegBus] ex_loData;
     (* KEEP="TRUE" *)wire[`DoubleRegBus] ex_hilo_o;
     (* KEEP="TRUE" *)wire[1:0] ex_count_o;
+    (* KEEP="TRUE" *)wire[`AluOpLength] ex_aluOp_o;
+    (* KEEP="TRUE" *)wire[`DataAddrBus] ex_mem_addr;
+    (* KEEP="TRUE" *)wire[`RegBus] ex_opNum2_o;
 
     //ex传到control
     (* KEEP="TRUE" *)wire ex_stall;
@@ -97,6 +108,9 @@ module CPU(
     (* KEEP="TRUE" *)wire mem_wHiLo_i;
     (* KEEP="TRUE" *)wire[`RegBus] mem_loData_i;
     (* KEEP="TRUE" *)wire[`RegBus] mem_hiData_i;
+    (* KEEP="TRUE" *)wire[`AluOpLength] mem_aluOp;
+    (* KEEP="TRUE" *)wire[`DataAddrBus] mem_mem_addr;
+    (* KEEP="TRUE" *)wire[`RegBus] mem_opNum2_i;
 
     //ex/mem传给ex
     (* KEEP="TRUE" *)wire[`DoubleRegBus] ex_hilo_i;
@@ -173,7 +187,9 @@ module CPU(
         .linkAddr(id_linkAddr),
         .nextInstInDelaySlot(nextInstInDelaySlot),
         .branchTargetAddr(branchTargetAddr),
-        .branch_flag(branch_flag)
+        .branch_flag(branch_flag),
+
+        .inst_o(inst_o)
     );
 
     regfile regfile0(
@@ -216,7 +232,9 @@ module CPU(
         .nextInstInDelaySlot(nextInstInDelaySlot),
         .ex_inDelaySlot(ex_inDelaySlot),
         .ex_linkAddr(ex_linkAddr),
-        .inDelaySlot(inDelaySlot)
+        .inDelaySlot(inDelaySlot),
+        .id_inst(inst_o),
+        .ex_inst(ex_inst)
     );
 
     ex ex0(
@@ -246,7 +264,11 @@ module CPU(
         .hilo_i(ex_hilo_i),
         .count_i(ex_count_i),
         .hilo_o(ex_hilo_o),
-        .count_o(ex_count_o)
+        .count_o(ex_count_o),
+        .inst_i(ex_inst),
+        .aluOp_o(ex_aluOp_o),
+        .mem_addr(ex_mem_addr),
+        .opNum2_o(ex_opNum2_o)
     );
 
     ex_mem ex_mem0(
@@ -268,7 +290,13 @@ module CPU(
         .hilo_i(ex_hilo_o),
         .count_i(ex_count_o),
         .hilo_o(ex_hilo_i),
-        .count_o(ex_count_i)
+        .count_o(ex_count_i),
+        .ex_aluOp(ex_aluOp_o),
+        .ex_mem_addr(ex_mem_addr),
+        .ex_opNum2(ex_opNum2_o),
+        .mem_aluOp(mem_aluOp),
+        .mem_mem_addr(mem_mem_addr),
+        .mem_opNum2(mem_opNum2_i)
     );
 
     mem mem0(
@@ -284,8 +312,19 @@ module CPU(
     	.wData_o(mem_wData_o),
         .wHiLo_o(mem_wHiLo_o),
         .hiData_o(mem_hiData_o),
-        .loData_o(mem_loData_o)
+        .loData_o(mem_loData_o),
+        .aluOp_i(mem_aluOp),
+        .mem_addr_i(mem_mem_addr),
+        .mem_opNum2_i(mem_opNum2_i),
+        .mem_ce(ram_ce),
+        .mem_we(ram_we),
+        .mem_addr_o(ram_addr),
+        .mem_data_o(ram_data_o),
+        .mem_sel(ram_sel),
+        .mem_data_i(ram_data_i)
     );
+
+
 
     mem_wb mem_wb0(
     	.rst(rst),

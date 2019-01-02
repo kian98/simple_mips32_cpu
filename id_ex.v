@@ -32,6 +32,7 @@ module id_ex(
     input wire id_inDelaySlot,
     input wire[`RegBus] id_linkAddr,
     input wire nextInstInDelaySlot,
+    input wire[`RegBus] id_inst,
     output reg ex_inDelaySlot,
     output reg[`RegBus] ex_linkAddr,
     output reg inDelaySlot,
@@ -39,7 +40,8 @@ module id_ex(
     output reg[`RegBus] ex_opNum1,
     output reg[`RegBus] ex_opNum2,
     output reg[`RegAddrBus] ex_writeAddr,
-    output reg ex_writeReg
+    output reg ex_writeReg,
+    output reg[`RegBus] ex_inst
     );
 
     always @(posedge clk) begin
@@ -69,6 +71,8 @@ module id_ex(
             ex_inDelaySlot <= id_inDelaySlot;
             //传回id段，指示id段此时读入指令是否为延迟槽指令
             inDelaySlot <= nextInstInDelaySlot;
+
+            ex_inst <= id_inst;
         end
         else if(stall[3] != `Stop) begin
             ex_aluOp <= `EXE_NOP_OP;          //复位，NOP

@@ -45,6 +45,8 @@ module ex(
     input wire inDelaySlot,
     input wire[`RegBus] linkAddr,
 
+    input wire[`RegBus] inst_i,
+
     output reg writeReg_o,
     output reg[`RegAddrBus] writeAddr_o,
     output reg[`RegBus] writeData_o,
@@ -54,7 +56,10 @@ module ex(
     output reg[`RegBus] loData_o,   //写到hilo_reg
     output reg ex_stall,
     output reg[1:0] count_o,
-    output reg[`DoubleRegBus] hilo_o
+    output reg[`DoubleRegBus] hilo_o,
+    output wire[`AluOpLength] aluOp_o,
+    output wire[`DataAddrBus] mem_addr,
+    output wire[`RegBus] opNum2_o
     );
 
     reg[`RegBus] hiData;            //从hilo_reg读出
@@ -67,6 +72,11 @@ module ex(
 
     wire[`DoubleRegBus] mul_ans_temp;
     reg[`DoubleRegBus] mul_ans;
+    reg[`DoubleRegBus] mul_add_sub_ans;
+
+    assign aluOp_o = aluOp;
+    assign mem_addr = opNum1 + {{16{inst_i[15]}},inst_i[15:0]};
+    assign opNum2_o = opNum2;
 
     //若为减法或者有符号的比较指令，需要求出补码，转化为加法运算
     assign opNum2_comp =
@@ -225,7 +235,7 @@ module ex(
                     else if(count_i == 2'b01) begin
                         hilo_o <= {`ZeroWord, `ZeroWord};
                         count_o <= 2'b10;
-                        mul_ans <= hilo_i + {hiData, loData};
+                        mul_add_sub_ans <= hilo_i + {hiData, loData};
                         ex_stall <= `NotStop;
                     end
                 end
@@ -240,7 +250,7 @@ module ex(
                     else if(count_i == 2'b01) begin
                         hilo_o <= {`ZeroWord, `ZeroWord};
                         count_o <= 2'b10;
-                        mul_ans <= hilo_i + {hiData, loData};
+                        mul_add_sub_ans <= hilo_i + {hiData, loData};
                         ex_stall <= `NotStop;
                     end
                 end
@@ -347,8 +357,8 @@ module ex(
                 `EXE_MADD_OP, `EXE_MSUB_OP, `EXE_MADDU_OP,`EXE_MSUBU_OP:
                 begin
                     wHiLo <= `WriteEnable;
-                    hiData_o <= mul_ans[63:32];
-                    loData_o <= mul_ans[31:0];
+                    hiData_o <= mul_add_sub_ans[63:32];
+                    loData_o <= mul_add_sub_ans[31:0];
                 end
                 default:begin
                     wHiLo <= `WriteDisable;

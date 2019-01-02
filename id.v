@@ -48,10 +48,14 @@ module id(
     output reg[`RegBus] branchTargetAddr,
     output reg inDelaySlot_o,
     output reg[`RegBus] linkAddr,
-    output reg nextInstInDelaySlot
+    output reg nextInstInDelaySlot,
+
+    output wire[`RegBus] inst_o
     );
 
     assign id_stall = 1'b0;
+
+    assign inst_o = id_inst;
 
     wire[5:0] op = id_inst[31:26];      //操作码
     wire[4:0] rs = id_inst[25:21];      //操作数1寄存器
@@ -88,6 +92,7 @@ module id(
 //      若op为零，shamt为零，根据funct对应以下：
 //          slt | sltu  | add   | addu  | sub   | subu  | mult  | multu
 //  对于转移指令：
+//  对于加载存储指令：
 
     always @(*) begin
         if (rst == `RstEnable) begin
@@ -285,6 +290,75 @@ module id(
                         nextInstInDelaySlot <= `InDelaySlot;
                         branchTargetAddr <= pc_4 + imm_sll2_signedext;
                     end
+                    instValid <= `InstValid;
+                end
+                `EXE_LB:
+                begin
+                    aluOp <= `EXE_LB_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    instValid <= `InstValid;
+                end
+                `EXE_LBU:
+                begin
+                    aluOp <= `EXE_LBU_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    instValid <= `InstValid;
+                end
+                `EXE_LH:
+                begin
+                    aluOp <= `EXE_LH_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    instValid <= `InstValid;
+                end
+                `EXE_LHU:
+                begin
+                    aluOp <= `EXE_LHU_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    instValid <= `InstValid;
+                end
+                `EXE_LW:
+                begin
+                    aluOp <= `EXE_LW_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadDisable;
+                    writeReg <= `WriteEnable;
+                    writeAddr <= id_inst[20:16];
+                    instValid <= `InstValid;
+                end
+                `EXE_SB:
+                begin
+                    aluOp <= `EXE_SB_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadEnable;
+                    writeReg <= `WriteDisable;
+                    instValid <= `InstValid;
+                end
+                `EXE_SH:
+                begin
+                    aluOp <= `EXE_SH_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadEnable;
+                    writeReg <= `WriteDisable;
+                    instValid <= `InstValid;
+                end
+                `EXE_SW:
+                begin
+                    aluOp <= `EXE_SW_OP;
+                    re1 <= `ReadEnable;
+                    re2 <= `ReadEnable;
+                    writeReg <= `WriteDisable;
                     instValid <= `InstValid;
                 end
                 6'b000001:

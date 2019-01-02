@@ -29,7 +29,7 @@ module pc_reg(
     output reg[`InstAddrBus] pc,//program counter,指令寄存器,要读取的指令的地址
     output reg ce				//指令存储器使能信号
     );
-//按字节变址，一个操作8位
+
     always @(posedge clk) begin
         if (rst == `RstEnable) begin
             ce <= `ChipDisable; //复位，指令存储器不可用

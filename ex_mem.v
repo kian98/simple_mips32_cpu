@@ -32,6 +32,9 @@ module ex_mem(
     input wire[`StallSignal] stall,
     input wire[`DoubleRegBus] hilo_i,
     input wire[1:0] count_i,
+    input wire[`AluOpLength] ex_aluOp,
+    input wire[`RegBus] ex_mem_addr,
+    input wire[`RegBus] ex_opNum2,
     output reg mem_wReg,
     output reg[`RegAddrBus] mem_wAddr,
     output reg[`RegBus] mem_wData,
@@ -39,7 +42,10 @@ module ex_mem(
     output reg[`RegBus] mem_hiData,
     output reg[`RegBus] mem_loData,
     output reg[`DoubleRegBus] hilo_o,
-    output reg[1:0] count_o
+    output reg[1:0] count_o,
+    output reg[`AluOpLength] mem_aluOp,
+    output reg[`RegBus] mem_mem_addr,
+    output reg[`RegBus] mem_opNum2
     );
 
 	always @(posedge clk) begin
@@ -52,6 +58,9 @@ module ex_mem(
 			mem_loData <= `ZeroWord;
 			hilo_o <= {`ZeroWord, `ZeroWord};
 			count_o <= 2'b00;
+			mem_aluOp <= `EXE_NOP_OP;
+			mem_mem_addr <= `ZeroWord;
+			mem_opNum2 <= `ZeroWord;
 		end
 		else if(stall[3] != `Stop) begin
 			mem_wReg <= ex_wReg;
@@ -62,6 +71,9 @@ module ex_mem(
 			mem_loData <= ex_loData;
 			hilo_o <= {`ZeroWord, `ZeroWord};
 			count_o <= 2'b00;
+			mem_aluOp <= ex_aluOp;
+			mem_mem_addr <= ex_mem_addr;
+			mem_opNum2 <= ex_opNum2;
 		end
 		else if(stall[4] != `Stop) begin
 			mem_wReg <= `WriteDisable;
@@ -72,6 +84,9 @@ module ex_mem(
 			mem_loData <= `ZeroWord;
 			hilo_o <= hilo_i;
 			count_o <= count_i;
+			mem_aluOp <= `EXE_NOP_OP;
+			mem_mem_addr <= `ZeroWord;
+			mem_opNum2 <= `ZeroWord;
 		end
 		else begin
 			hilo_o <= hilo_i;
