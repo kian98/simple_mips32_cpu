@@ -32,26 +32,26 @@ module data_ram(
 
 	reg[`ByteWidth] mem0[0:`DataMemNum-1];
 	reg[`ByteWidth] mem1[0:`DataMemNum-1];
-	reg[`ByteWidth] mem2[0:`DataMesmNum-1];
+	reg[`ByteWidth] mem2[0:`DataMemNum-1];
 	reg[`ByteWidth] mem3[0:`DataMemNum-1];
 
 	always @(posedge clk) begin
-		if (ce == `ChipDisable && we == `WriteEnable) begin
+		if (ce == `ChipEnable && we == `WriteEnable) begin
 			if(sel[3] == 1'b1)
 			begin
-				mem3[addr[`DataMemSizeLength]>>2] <= wData[31:24];
+				mem3[addr[`DataMemSizeLength+1:2]] <= wData[31:24];
 			end
 			if(sel[2] == 1'b1)
 			begin
-				mem2[addr[`DataMemSizeLength]>>2] <= wData[23:16];
+				mem2[addr[`DataMemSizeLength+1:2]] <= wData[23:16];
 			end
 			if(sel[1] == 1'b1)
 			begin
-				mem1[addr[`DataMemSizeLength]>>2] <= wData[15:8];
+				mem1[addr[`DataMemSizeLength+1:2]] <= wData[15:8];
 			end
 			if(sel[0] == 1'b1)
 			begin
-				mem0[addr[`DataMemSizeLength]>>2] <= wData[7:0];
+				mem0[addr[`DataMemSizeLength+1:2]] <= wData[7:0];
 			end
 		end
 	end
@@ -62,10 +62,10 @@ module data_ram(
 		end
 		else if (we <= `WriteDisable) begin
 			rData <= {
-				mem3[addr[`DataMemSizeLength]>>2],
-				mem2[addr[`DataMemSizeLength]>>2],
-				mem1[addr[`DataMemSizeLength]>>2],
-				mem0[addr[`DataMemSizeLength]>>2]
+				mem3[addr[`DataMemSizeLength+1:2]],
+				mem2[addr[`DataMemSizeLength+1:2]],
+				mem1[addr[`DataMemSizeLength+1:2]],
+				mem0[addr[`DataMemSizeLength+1:2]]
 			};
 		end
 		else begin

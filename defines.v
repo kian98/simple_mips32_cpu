@@ -47,8 +47,8 @@
 //数据存储器data_ram
 `define DataAddrBus 		31:0
 `define DataBus 			31:0
-`define DataMemNum 			131071
-`define DataMemSizeLength 	17
+`define DataMemNum 			1024
+`define DataMemSizeLength 	10
 `define ByteWidth 			7:0
 
 //32位指令中的前六位操作码字段Operation code

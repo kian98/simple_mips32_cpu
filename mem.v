@@ -191,28 +191,28 @@ module mem(
 				begin
 					mem_addr_o <= {mem_addr_i[31:2], 2'b00};
 					mem_we_temp <= `WriteEnable;
+					mem_data_o <= {mem_opNum2_i[7:0],mem_opNum2_i[7:0],
+						mem_opNum2_i[7:0],mem_opNum2_i[7:0]};
 					case (mem_addr_i[1:0])
 						2'b00:
 						begin
-							//加载地址全部数据
-							mem_data_o <= mem_data_i[31:0];
+							mem_sel <= 4'b1000;
 						end
 						2'b01:
 						begin
-							//数据低到高4-1个字节
-							mem_data_o <= {mem_data_i[23:0], mem_opNum2_i[7:0]};
+							mem_sel <= 4'b0100;
 						end
 						2'b10:
 						begin
-							mem_data_o <= {mem_data_i[15:0], mem_opNum2_i[15:0]};
+							mem_sel <= 4'b0010;
 						end
 						2'b11:
 						begin
-							mem_data_o <= {mem_data_i[7:0], mem_opNum2_i[23:0]};	
+							mem_sel <= 4'b0001;
 						end
 						default:
 						begin
-							mem_data_o <= `ZeroWord;
+							mem_sel <= 4'b0000;
 						end
 					endcase
 				end
@@ -220,6 +220,7 @@ module mem(
 				begin
 					mem_addr_o <= {mem_addr_i[31:2], 2'b00};
 					mem_we_temp <= `WriteEnable;
+					mem_data_o <= {mem_opNum2_i[15:0],mem_opNum2_i[15:0]};
 					case (mem_addr_i[1:0])
 						2'b00:
 						begin
@@ -236,7 +237,7 @@ module mem(
 				end
 				`EXE_SW_OP:
 				begin
-					mem_addr_o <= mem_addr_o;
+					mem_addr_o <= mem_addr_i;
 					mem_we_temp <= `WriteEnable;
 					mem_data_o <= mem_opNum2_i;
 				end

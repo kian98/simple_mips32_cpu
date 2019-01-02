@@ -55,7 +55,7 @@ module MIPS_CPU_sopc(
 	);
 
 	data_ram data_ram0(
-		.ce(mem_ce),
+		.ce(ram_ce),
 		.clk(clk),
 		.wData(ram_data_o),
 		.addr(ram_addr),
