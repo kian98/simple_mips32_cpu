@@ -29,7 +29,16 @@ module id(
     input wire[`RegBus] regData1,
     input wire[`RegBus] regData2,
 
+    //为解决数据相关问题，将MEM和EX的数据直接传入到ID段
+    input wire ex_wReg_i,
+    input wire[`RegAddrBus] ex_wAddr_i,
+    input wire[`RegBus] ex_wData_i,
+    input wire mem_wReg_i,
+    input wire[`RegAddrBus] mem_wAddr_i,
+    input wire[`RegBus] mem_wData_i,
+
     input wire inDelaySlot_i,         //是否为延迟槽指令
+    input wire[`AluOpLength] ex_aluop_i,
 
     output reg re1,
     output reg[`RegAddrBus] readAddr1,
@@ -53,9 +62,20 @@ module id(
     output wire[`RegBus] inst_o
     );
 
-    assign id_stall = 1'b0;
 
     assign inst_o = id_inst;
+
+    reg opNum1_load_stall;
+    reg opNum2_load_stall;
+    wire last_inst_load;
+
+    assign id_stall = opNum1_load_stall | opNum2_load_stall;
+    
+    assign last_inst_load = ((ex_aluop_i == `EXE_LB_OP) || 
+                            (ex_aluop_i == `EXE_LBU_OP)||
+                            (ex_aluop_i == `EXE_LH_OP) ||
+                            (ex_aluop_i == `EXE_LHU_OP)||
+                            (ex_aluop_i == `EXE_LW_OP)) ? 1'b1 : 1'b0;
 
     wire[5:0] op = id_inst[31:26];      //操作码
     wire[4:0] rs = id_inst[25:21];      //操作数1寄存器
@@ -247,7 +267,7 @@ module id(
                     re1 <= `ReadEnable;
                     re2 <= `ReadEnable;
                     writeReg <=`WriteDisable;
-                    if (regData1 == regData2) begin
+                    if (opNum1 == opNum2) begin
                         branch_flag <= `Branch;
                         nextInstInDelaySlot <= `InDelaySlot;
                         branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -260,7 +280,7 @@ module id(
                     re1 <= `ReadEnable;
                     re2 <= `ReadEnable;
                     writeReg <=`WriteDisable;
-                    if (regData1 != regData2) begin
+                    if (opNum1 != opNum2) begin
                         branch_flag <= `Branch;
                         nextInstInDelaySlot <= `InDelaySlot;
                         branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -273,7 +293,7 @@ module id(
                     re1 <= `ReadEnable;
                     re2 <= `ReadDisable;
                     writeReg <=`WriteDisable;
-                    if (regData1[31] == 1'b0 && regData1 != `ZeroWord) begin
+                    if (opNum1[31] == 1'b0 && opNum2 != `ZeroWord) begin
                         branch_flag <= `Branch;
                         nextInstInDelaySlot <= `InDelaySlot;
                         branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -286,7 +306,7 @@ module id(
                     re1 <= `ReadEnable;
                     re2 <= `ReadDisable;
                     writeReg <=`WriteDisable;
-                    if (regData1[31] == 1'b1 || regData1 == `ZeroWord) begin
+                    if (opNum1[31] == 1'b1 || opNum2 == `ZeroWord) begin
                         branch_flag <= `Branch;
                         nextInstInDelaySlot <= `InDelaySlot;
                         branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -371,7 +391,7 @@ module id(
                             re1 <= `ReadEnable;
                             re2 <= `ReadDisable;
                             writeReg <=`WriteDisable;
-                            if (regData1[31] == 1'b0) begin
+                            if (opNum1[31] == 1'b0) begin
                                 branch_flag <= `Branch;
                                 nextInstInDelaySlot <= `InDelaySlot;
                                 branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -386,7 +406,7 @@ module id(
                             writeReg <=`WriteEnable;
                             writeAddr <= 5'b11111;
                             linkAddr <= pc_8;
-                            if (regData1[31] == 1'b0) begin
+                            if (opNum1[31] == 1'b0) begin
                                 branch_flag <= `Branch;
                                 nextInstInDelaySlot <= `InDelaySlot;
                                 branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -399,7 +419,7 @@ module id(
                             re1 <= `ReadEnable;
                             re2 <= `ReadDisable;
                             writeReg <=`WriteDisable;
-                            if (regData1[31] == 1'b1) begin
+                            if (opNum1[31] == 1'b1) begin
                                 branch_flag <= `Branch;
                                 nextInstInDelaySlot <= `InDelaySlot;
                                 branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -414,7 +434,7 @@ module id(
                             writeReg <=`WriteEnable;
                             writeAddr <= 5'b11111;
                             linkAddr <= pc_8;
-                            if (regData1[31] == 1'b1) begin
+                            if (opNum1[31] == 1'b1) begin
                                 branch_flag <= `Branch;
                                 nextInstInDelaySlot <= `InDelaySlot;
                                 branchTargetAddr <= pc_4 + imm_sll2_signedext;
@@ -679,7 +699,7 @@ module id(
                                     re2 <= `ReadDisable;
                                     writeReg <= `WriteDisable;
                                     branch_flag <= `Branch;
-                                    branchTargetAddr <= regData1;
+                                    branchTargetAddr <= opNum1;
                                     nextInstInDelaySlot <= `InDelaySlot;
                                     instValid <= `InstValid;
                                 end
@@ -691,7 +711,7 @@ module id(
                                     writeReg <= `WriteEnable;
                                     linkAddr <= pc_8;
                                     branch_flag <= `Branch;
-                                    branchTargetAddr <= regData1;
+                                    branchTargetAddr <= opNum1;
                                     nextInstInDelaySlot <= `InDelaySlot;
                                     instValid <= `InstValid;
                                 end
@@ -768,8 +788,21 @@ module id(
 
 //*****************取操作数1***************
     always @(*) begin
+        opNum1_load_stall <= 1'b0;
         if (rst == `RstEnable) begin
             opNum1 <= `ZeroWord;
+        end
+        else if(last_inst_load == 1'b1 && ex_wAddr_i == readAddr1
+            && re1 == `ReadEnable) begin
+            opNum1_load_stall <= 1'b1;
+        end
+        else if (re1 == `ReadEnable && ex_wReg_i == `WriteEnable
+            && readAddr1 == ex_wAddr_i) begin
+            opNum1 <= ex_wData_i;
+        end
+        else if (re1 == `ReadEnable && mem_wReg_i == `WriteEnable
+            && readAddr1 == mem_wAddr_i) begin
+            opNum1 <= mem_wData_i;
         end
         else if (re1 == `ReadDisable) begin
             opNum1 <= imm;
@@ -785,8 +818,21 @@ module id(
 
 //******************取操作数2***************
     always @(*) begin
+        opNum2_load_stall <= 1'b0;
         if (rst == `RstEnable) begin
             opNum2 <= `ZeroWord;
+        end
+        else if(last_inst_load == 1'b1 && ex_wAddr_i == readAddr2
+            && re2 == `ReadEnable) begin
+            opNum2_load_stall <= 1'b1;
+        end
+        else if (re2 == `ReadEnable && ex_wReg_i == `WriteEnable
+            && readAddr2 == ex_wAddr_i) begin
+            opNum2 <= ex_wData_i;
+        end
+        else if (re2 == `ReadEnable && mem_wReg_i == `WriteEnable
+            && readAddr2 == mem_wAddr_i) begin
+            opNum2 <= mem_wData_i;
         end
         else if (re2 == `ReadDisable) begin
             opNum2 <= imm;

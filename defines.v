@@ -106,6 +106,7 @@
 `define EXE_MULT 			6'b011000
 `define EXE_MULTU 			6'b011001
 `define EXE_MUL 			6'b000010
+
 `define EXE_MADD 			6'b000000
 `define EXE_MADDU 			6'b000001
 `define EXE_MSUB 			6'b000100
@@ -133,13 +134,9 @@
 `define EXE_LH 				6'b100001
 `define EXE_LHU 			6'b100101
 `define EXE_LW 				6'b100011
-`define EXE_LWL 			6'b100010
-`define EXE_LWR 			6'b100110
 `define EXE_SB 				6'b101000
 `define EXE_SH 				6'b101001
 `define EXE_SW 				6'b101011
-`define EXE_SWL 			6'b101010
-`define EXE_SWR 			6'b101110
 
 //除法指令
 `define EXE_DIV 			6'b011010
@@ -170,7 +167,6 @@
 `define EXE_MTHI_OP			8'b00010001 	//mov to hi
 `define EXE_MFLO_OP			8'b00010010 	//mov from lo
 `define EXE_MTLO_OP			8'b00010011 	//mov to lo
-//因为有符号和无符号需要考虑是否溢出，因此不可以合用
 `define EXE_SLT_OP 			8'b00101010 	//set if less than
 `define EXE_SLTU_OP 		8'b00101011 	//set if less than unsign
 `define EXE_SLTI_OP 		8'b01010111 	//slt imm

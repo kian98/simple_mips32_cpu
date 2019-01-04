@@ -183,6 +183,13 @@ module CPU(
     	.regData2(id_regData2),
         .inDelaySlot_i(inDelaySlot),
 
+        .ex_wReg_i(ex_wReg),
+        .ex_wAddr_i(ex_wAddr),
+        .ex_wData_i(ex_wData),
+        .mem_wReg_i(mem_wReg_o),
+        .mem_wAddr_i(mem_wAddr_o),
+        .mem_wData_i(mem_wData_o),
+
         .re1(id_re1),
         .re2(id_re2),
         .readAddr1(id_readAddr1),
@@ -199,7 +206,9 @@ module CPU(
         .branchTargetAddr(branchTargetAddr),
         .branch_flag(branch_flag),
 
-        .inst_o(inst_o)
+        .inst_o(inst_o),
+
+        .ex_aluop_i(ex_aluOp_o)
     );
 
     regfile regfile0(
